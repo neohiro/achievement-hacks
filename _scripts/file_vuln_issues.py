@@ -291,23 +291,38 @@ Filed responsibly by the [neohiro](https://github.com/neohiro) org.
 ]
 
 
-def file_issues(dry_run=False, stop_on_error=False):
-    for i, issue in enumerate(ISSUES, 1):
-        cmd = [
-            "gh", "issue", "create",
-            "--repo", REPO,
-            "--title", issue["title"],
-            "--body", issue["body"],
-        ]
-        for label in issue["labels"]:
-            cmd += ["--label", label]
+def build_command(issue):
+    """Build the gh issue create command for a single issue.
 
+    Exposed for testing; do not invoke subprocess here.
+    """
+    cmd = [
+        "gh", "issue", "create",
+        "--repo", REPO,
+        "--title", issue["title"],
+        "--body", issue["body"],
+    ]
+    for label in issue["labels"]:
+        cmd += ["--label", label]
+    return cmd
+
+
+def file_issues(dry_run=False, stop_on_error=False, runner=None):
+    """File all issues. Returns 0 on full success, 1 on first failure (when stop_on_error).
+
+    runner: optional callable(cmd) -> CompletedProcess. Defaults to subprocess.run.
+    """
+    if runner is None:
+        runner = subprocess.run
+
+    for i, issue in enumerate(ISSUES, 1):
+        cmd = build_command(issue)
         print(f"[{i}/{len(ISSUES)}] {'[DRY-RUN]' if dry_run else 'Running'} gh issue create --repo {REPO} --title {issue['title']!r}", file=sys.stderr)
 
         if dry_run:
             continue
 
-        result = subprocess.run(cmd, capture_output=True, encoding="utf-8")
+        result = runner(cmd)
         if result.returncode == 0:
             print(f"OK: {result.stdout.strip()}", file=sys.stderr)
         else:

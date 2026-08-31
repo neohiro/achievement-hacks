@@ -153,6 +153,85 @@ class TestStopOnError(unittest.TestCase):
         self.assertEqual(runner.call_count, len(fvi.ISSUES))
 
 
+class TestGhRun(unittest.TestCase):
+    def test_gh_run_returns_completed_process(self):
+        r = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
+        with unittest.mock.patch("subprocess.run", return_value=r) as mock_sr:
+            result = fvi._gh_run(["gh", "issue", "list"])
+            mock_sr.assert_called_once_with(
+                ["gh", "issue", "list"],
+                capture_output=True, encoding="utf-8",
+            )
+            self.assertEqual(result.stdout, "ok")
+
+    def test_gh_run_string_output_not_bytes(self):
+        r = subprocess.CompletedProcess(args=[], returncode=0, stdout="url", stderr="")
+        with unittest.mock.patch("subprocess.run", return_value=r):
+            result = fvi._gh_run(["gh"])
+            self.assertIsInstance(result.stdout, str)
+            self.assertIsInstance(result.stderr, str)
+
+
+class TestExceptionHandling(unittest.TestCase):
+    def test_file_not_found_returns_zero(self):
+        runner = MagicMock(side_effect=FileNotFoundError("gh not found"))
+        rc = fvi.file_issues(runner=runner)
+        self.assertEqual(rc, 0)
+        self.assertEqual(runner.call_count, len(fvi.ISSUES))
+
+    def test_file_not_found_stop_on_error_returns_one(self):
+        runner = MagicMock(side_effect=FileNotFoundError("gh not found"))
+        rc = fvi.file_issues(stop_on_error=True, runner=runner)
+        self.assertEqual(rc, 1)
+        self.assertEqual(runner.call_count, 1)
+
+    def test_generic_exception_returns_zero(self):
+        runner = MagicMock(side_effect=RuntimeError("unexpected"))
+        rc = fvi.file_issues(runner=runner)
+        self.assertEqual(rc, 0)
+        self.assertEqual(runner.call_count, len(fvi.ISSUES))
+
+    def test_generic_exception_stop_on_error_returns_one(self):
+        runner = MagicMock(side_effect=RuntimeError("unexpected"))
+        rc = fvi.file_issues(stop_on_error=True, runner=runner)
+        self.assertEqual(rc, 1)
+        self.assertEqual(runner.call_count, 1)
+
+
+class TestSecurityAnchors(unittest.TestCase):
+    """Verify every SECURITY.md anchor referenced in issue bodies resolves to a heading."""
+
+    @classmethod
+    def setUpClass(cls):
+        sec_path = os.path.join(HERE, "..", "SECURITY.md")
+        with open(sec_path, encoding="utf-8") as f:
+            cls.sec_content = f.read()
+
+    @staticmethod
+    def _heading_to_slug(heading_text):
+        """Match github-slugger: spaces->hyphens first, then strip non-alnum/hyphen."""
+        import re
+        slug = heading_text.lower().strip()
+        slug = re.sub(r"[\s]+", "-", slug)
+        slug = re.sub(r"[^\w-]", "", slug)
+        return slug.strip("-")
+
+    def test_all_anchored_links_resolve(self):
+        import re
+        sec_headings = re.findall(r"^#{1,6}\s+(.+)$", self.sec_content, re.MULTILINE)
+        valid_slugs = {self._heading_to_slug(h) for h in sec_headings}
+
+        all_anchors = []
+        for issue in fvi.ISSUES:
+            all_anchors += re.findall(r"SECURITY\.md#([\w-]+)", issue["body"])
+
+        for anchor in set(all_anchors):
+            self.assertIn(
+                anchor, valid_slugs,
+                f"anchor #{anchor} referenced in issue body but no matching heading in SECURITY.md",
+            )
+
+
 class TestCli(unittest.TestCase):
     def test_help_exits_zero(self):
         proc = subprocess.run(

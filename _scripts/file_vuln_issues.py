@@ -5,7 +5,7 @@
 Usage:
     python file_vuln_issues.py              # file all issues
     python file_vuln_issues.py --dry-run     # print what would be filed
-    python file_vuln_issues.py --dry-run -   # pipe body of first issue to stdout
+    python file_vuln_issues.py --stop-on-error  # exit on first failure
 
 Requires: gh CLI authenticated with repo scope.
 """
@@ -307,13 +307,18 @@ def build_command(issue):
     return cmd
 
 
+def _gh_run(cmd):
+    """Default runner: wraps subprocess.run with the correct flags for gh."""
+    return subprocess.run(cmd, capture_output=True, encoding="utf-8")
+
+
 def file_issues(dry_run=False, stop_on_error=False, runner=None):
     """File all issues. Returns 0 on full success, 1 on first failure (when stop_on_error).
 
-    runner: optional callable(cmd) -> CompletedProcess. Defaults to subprocess.run.
+    runner: optional callable(cmd) -> CompletedProcess. Defaults to _gh_run.
     """
     if runner is None:
-        runner = subprocess.run
+        runner = _gh_run
 
     for i, issue in enumerate(ISSUES, 1):
         cmd = build_command(issue)
@@ -322,7 +327,18 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
         if dry_run:
             continue
 
-        result = runner(cmd)
+        try:
+            result = runner(cmd)
+        except FileNotFoundError:
+            print(f"ERR: 'gh' CLI not found — install it from https://cli.github.com", file=sys.stderr)
+            if stop_on_error:
+                return 1
+            continue
+        except Exception as exc:
+            print(f"ERR: runner raised {type(exc).__name__}: {exc}", file=sys.stderr)
+            if stop_on_error:
+                return 1
+            continue
         if result.returncode == 0:
             print(f"OK: {result.stdout.strip()}", file=sys.stderr)
         else:

@@ -17,7 +17,7 @@
 3. [VULN-001: Quickdraw — Sub-5-Minute Issue/PR Close Loop](#vuln-001-quickdraw--sub-5-minute-issuepr-close-loop)
 4. [VULN-002: YOLO — Review-Free Merge via Admin Override](#vuln-002-yolo--review-free-merge-via-admin-override)
 5. [VULN-003: Heart On Your Sleeve — Mass Reaction Automation](#vuln-003-heart-on-your-sleeve--mass-reaction-automation)
-6. [VULn-004: Pair Extraordinaire — Co-Author Trailer Abuse](#vuln-004-pair-extraordinaire--co-author-trailer-abuse)
+6. [VULN-004: Pair Extraordinaire — Co-Author Trailer Abuse](#vuln-004-pair-extraordinaire--co-author-trailer-abuse)
 7. [VULN-005: Pull Shark — Automated PR Farming](#vuln-005-pull-shark--automated-pr-farming)
 8. [VULN-006: Galaxy Brain — Discussion Self-Answer Abuse](#vuln-006-galaxy-brain--discussion-self-answer-abuse)
 9. [Proposed Defenses](#proposed-defenses)
@@ -359,7 +359,7 @@ All proposed defenses respect user privacy. None of the above defenses require i
 
 | Date | Event |
 |---|---|
-| 2026-08-31 | Vulnerabilities documented in `neohiro/achievementhacks` repository |
+| 2026-08-31 | Vulnerabilities documented in `neohiro/achievement-hacks` repository |
 | 2026-08-31 | GitHub Issues filed as public security concerns |
 | 2026-08-31 | GitHub Security team notified via [HackerOne GitHub Bug Bounty](https://hackerone.com/github) (if applicable) |
 | TBD | GitHub acknowledges / implements defenses |

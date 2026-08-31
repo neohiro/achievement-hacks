@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
-"""file_vuln_issues.py — File the vulnerability GitHub Issues for each super-easy achievement.
+# -*- coding: utf-8 -*-
+"""file_vuln_issues.py — File GitHub Issues for achievement-hacking vulnerabilities.
 
-Run: python file_vuln_issues.py
+Usage:
+    python file_vuln_issues.py              # file all issues
+    python file_vuln_issues.py --dry-run     # print what would be filed
+    python file_vuln_issues.py --dry-run -   # pipe body of first issue to stdout
+
+Requires: gh CLI authenticated with repo scope.
 """
-import json
+import argparse
 import subprocess
 import sys
+
+REPO = "neohiro/achievement-hacks"
 
 ISSUES = [
     {
@@ -27,9 +35,9 @@ api.close_issue(repo, issue.number)  # < 1 second later
 # Both opener and closer earn the badge
 ```
 
-Reference implementation: [neohiro/achievementhacks/_achievements/quickdraw/earn.sh](https://github.com/neohiro/achievementhacks/blob/main/_achievements/quickdraw/earn.sh)
+Reference implementation: [neohiro/achievement-hacks/_achievements/quickdraw/earn.sh](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/quickdraw/earn.sh)
 
-Full security analysis: see [SECURITY.md#vuln-001](https://github.com/neohiro/achievementhacks/blob/main/SECURITY.md#vuln-001-quickdraw--sub-5-minute-issuepr-close-loop)
+Full security analysis: see [SECURITY.md#vuln-001-quickdraw--sub-5-minute-issuepr-close-loop](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-001-quickdraw--sub-5-minute-issuepr-close-loop)
 
 ## Impact
 
@@ -48,7 +56,7 @@ Full security analysis: see [SECURITY.md#vuln-001](https://github.com/neohiro/ac
 ## Reference
 
 - [Achievement docs](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/personalizing-your-profile#displaying-badges-on-your-profile)
-- [neohiro/achievementhacks README](https://github.com/neohiro/achievementhacks)
+- [neohiro/achievement-hacks README](https://github.com/neohiro/achievement-hacks)
 
 ## Disclosure
 
@@ -74,7 +82,7 @@ gh pr merge --admin --squash "$pr_url"
 # Badge earned
 ```
 
-Reference: [neohiro/achievementhacks/_achievements/yolo/README.md](https://github.com/neohiro/achievementhacks/blob/main/_achievements/yolo/README.md)
+Reference: [neohiro/achievement-hacks/_achievements/yolo/README.md](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/yolo/README.md)
 
 ## Impact
 
@@ -89,8 +97,8 @@ Reference: [neohiro/achievementhacks/_achievements/yolo/README.md](https://githu
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievementhacks/blob/main/SECURITY.md#vuln-002-yolo--review-free-merge-via-admin-override)
-- [neohiro/achievementhacks README](https://github.com/neohiro/achievementhacks)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-002-yolo--review-free-merge-via-admin-override)
+- [neohiro/achievement-hacks README](https://github.com/neohiro/achievement-hacks)
 
 ## Disclosure
 
@@ -118,7 +126,7 @@ for comment_url in scraped_comment_urls:
 
 **Note:** Automated mass reactions likely violate GitHub ToS. This is documented for research purposes only.
 
-Reference: [neohiro/achievementhacks/_achievements/heart-on-your-sleeve/README.md](https://github.com/neohiro/achievementhacks/blob/main/_achievements/heart-on-your-sleeve/README.md)
+Reference: [neohiro/achievement-hacks/_achievements/heart-on-your-sleeve/README.md](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/heart-on-your-sleeve/README.md)
 
 ## Impact
 
@@ -136,7 +144,7 @@ Reference: [neohiro/achievementhacks/_achievements/heart-on-your-sleeve/README.m
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievementhacks/blob/main/SECURITY.md#vuln-003-heart-on-your-sleeve--mass-reaction-automation)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-003-heart-on-your-sleeve--mass-reaction-automation)
 
 ## Disclosure
 
@@ -167,7 +175,7 @@ gh pr merge --squash
 # Both accounts get +50 toward Pair Extraordinaire
 ```
 
-Reference: [neohiro/achievementhacks/_achievements/pair-extraordinaire/README.md](https://github.com/neohiro/achievementhacks/blob/main/_achievements/pair-extraordinaire/README.md)
+Reference: [neohiro/achievement-hacks/_achievements/pair-extraordinaire/README.md](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/pair-extraordinaire/README.md)
 
 ## Impact
 
@@ -183,7 +191,7 @@ Reference: [neohiro/achievementhacks/_achievements/pair-extraordinaire/README.md
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievementhacks/blob/main/SECURITY.md#vuln-004-pair-extraordinaire--co-author-trailer-abuse)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-004-pair-extraordinaire--co-author-trailer-abuse)
 - [GitHub co-author documentation](https://docs.github.com/en/pull-requests/committing-changes-to-your-project/creating-and-editing-commits/creating-a-commit-with-multiple-authors)
 
 ## Disclosure
@@ -212,7 +220,7 @@ for i in range(20):
     time.sleep(60)
 ```
 
-Reference: [neohiro/achievementhacks/_achievements/pull-shark/README.md](https://github.com/neohiro/achievementhacks/blob/main/_achievements/pull-shark/README.md)
+Reference: [neohiro/achievement-hacks/_achievements/pull-shark/README.md](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/pull-shark/README.md)
 
 ## Impact
 
@@ -229,7 +237,7 @@ Reference: [neohiro/achievementhacks/_achievements/pull-shark/README.md](https:/
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievementhacks/blob/main/SECURITY.md#vuln-005-pull-shark--automated-pr-farming)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-005-pull-shark--automated-pr-farming)
 
 ## Disclosure
 
@@ -257,7 +265,7 @@ for i in range(10):
     # +1 Galaxy Brain per accepted answer
 ```
 
-Reference: [neohiro/achievementhacks/_achievements/galaxy-brain/README.md](https://github.com/neohiro/achievementhacks/blob/main/_achievements/galaxy-brain/README.md)
+Reference: [neohiro/achievement-hacks/_achievements/galaxy-brain/README.md](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/galaxy-brain/README.md)
 
 ## Impact
 
@@ -273,7 +281,7 @@ Reference: [neohiro/achievementhacks/_achievements/galaxy-brain/README.md](https
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievementhacks/blob/main/SECURITY.md#vuln-006-galaxy-brain--discussion-self-answer-abuse)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-006-galaxy-brain--discussion-self-answer-abuse)
 
 ## Disclosure
 
@@ -283,24 +291,37 @@ Filed responsibly by the [neohiro](https://github.com/neohiro) org.
 ]
 
 
-def file_issues():
-    for issue in ISSUES:
-        result = subprocess.run(
-            [
-                "gh", "issue", "create",
-                "--repo", "neohiro/achievementhacks",
-                "--title", issue["title"],
-                "--body", issue["body"],
-                "--label", ",".join(issue["labels"]),
-            ],
-            capture_output=True,
-            text=True,
-        )
+def file_issues(dry_run=False, stop_on_error=False):
+    for i, issue in enumerate(ISSUES, 1):
+        cmd = [
+            "gh", "issue", "create",
+            "--repo", REPO,
+            "--title", issue["title"],
+            "--body", issue["body"],
+        ]
+        for label in issue["labels"]:
+            cmd += ["--label", label]
+
+        print(f"[{i}/{len(ISSUES)}] {'[DRY-RUN]' if dry_run else 'Running'} gh issue create --repo {REPO} --title {issue['title']!r}", file=sys.stderr)
+
+        if dry_run:
+            continue
+
+        result = subprocess.run(cmd, capture_output=True, encoding="utf-8")
         if result.returncode == 0:
-            print(f"OK: {result.stdout.strip()}")
+            print(f"OK: {result.stdout.strip()}", file=sys.stderr)
         else:
             print(f"ERR: {result.stderr.strip()}", file=sys.stderr)
+            if stop_on_error:
+                print(f"Stopping on error at issue {i}.", file=sys.stderr)
+                return 1
+    return 0
 
 
 if __name__ == "__main__":
-    file_issues()
+    parser = argparse.ArgumentParser(description="File GitHub Issues for achievement-hacking vulnerabilities.")
+    parser.add_argument("--dry-run", action="store_true", help="Print what would be filed without filing")
+    parser.add_argument("--stop-on-error", action="store_true",
+                        help="Exit on first filing failure instead of continuing")
+    args = parser.parse_args()
+    sys.exit(file_issues(dry_run=args.dry_run, stop_on_error=args.stop_on_error))

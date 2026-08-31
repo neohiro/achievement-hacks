@@ -1,0 +1,22 @@
+slug: public-sponsor
+name: Public Sponsor
+emoji: "💖"
+tiers:
+  - name: Default
+    threshold: 1
+earned_on: []
+status: Not yet
+earnable: true
+deprecated_reason: ""
+how_earned: "Sponsored an open source contributor via GitHub Sponsors."
+automatable: false
+automation_difficulty: Trivial
+links:
+  official_doc: "https://docs.github.com/en/sponsors"
+  community_repo: "https://github.com/drknzz/GitHub-Achievements"
+notes:
+  - "Single tier — one-time achievement"
+  - "Minimum $1 sponsorship qualifies"
+  - "One-time payment counts, doesn't need to be recurring"
+  - "Requires real money via GitHub Sponsors"
+  - "The sponsored account doesn't have to accept — the act of sponsoring is what counts"

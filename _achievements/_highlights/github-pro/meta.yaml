@@ -1,0 +1,19 @@
+slug: github-pro
+name: GitHub Pro
+emoji: "💎"
+tiers:
+  - name: Default
+    threshold: 1
+earned_on: []
+status: Unobtainable
+earnable: false
+deprecated_reason: "Requires an active paid GitHub Pro subscription. Not a contribution badge — purely account-tier."
+how_earned: "Maintain an active GitHub Pro subscription."
+automatable: false
+automation_difficulty: Trivial
+links:
+  official_doc: "https://docs.github.com/en/get-started/learning-about-github/githubs-plans"
+notes:
+  - "Purely a paid-tier indicator"
+  - "Pro is $4/month (2026)"
+  - "Many of the same features are also on GitHub Free"

@@ -1,0 +1,19 @@
+slug: github-campus-expert
+name: GitHub Campus Expert
+emoji: "🎓"
+tiers:
+  - name: Default
+    threshold: 1
+earned_on: []
+status: Unobtainable
+earnable: false
+deprecated_reason: "Requires enrollment in the GitHub Education Campus Program and completing the Campus Expert training."
+how_earned: "Participate in the GitHub Campus Program, complete the Campus Expert training, and represent your school."
+automatable: false
+automation_difficulty: Hard
+links:
+  official_doc: "https://education.github.com/"
+notes:
+  - "Requires being part of a school/university"
+  - "Campus Experts undergo training and represent their school"
+  - "Benefits include a badge, swag, and access to events"

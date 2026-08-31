@@ -1,0 +1,18 @@
+slug: developer-program-member
+name: Developer Program Member
+emoji: "🛠️"
+tiers:
+  - name: Default
+    threshold: 1
+earned_on: []
+status: Unobtainable
+earnable: false
+deprecated_reason: "Requires registration in the GitHub Developer Program (building GitHub Apps or Integrations)."
+how_earned: "Be a registered member of the GitHub Developer Program."
+automatable: false
+automation_difficulty: Trivial
+links:
+  official_doc: "https://docs.github.com/en/developers"
+notes:
+  - "For builders of GitHub Apps and Integrations"
+  - "Free to join"

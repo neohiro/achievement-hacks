@@ -1,0 +1,21 @@
+slug: security-bug-bounty-hunter
+name: Security Bug Bounty Hunter
+emoji: "🐛"
+tiers:
+  - name: Default
+    threshold: 1
+earned_on: []
+status: Unobtainable
+earnable: false
+deprecated_reason: "Requires a confirmed vulnerability report via GitHub's HackerOne bug bounty program."
+how_earned: "Report a security vulnerability in GitHub's own platform via the GitHub Security Bug Bounty program (HackerOne)."
+automatable: false
+automation_difficulty: Hard
+links:
+  official_doc: "https://bounty.github.com/"
+  community_repo: "https://hackerone.com/github"
+notes:
+  - "GitHub runs its bounty on HackerOne"
+  - "Bounties range from ~$555 to $30,000+ depending on severity"
+  - "Only vulnerabilities in GitHub's OWN products count"
+  - "Out-of-scope items listed on bounty.github.com"

@@ -1,0 +1,27 @@
+slug: pair-extraordinaire
+name: Pair Extraordinaire
+emoji: "👥"
+tiers:
+  - name: Default
+    threshold: 1
+  - name: Bronze
+    threshold: 10
+  - name: Silver
+    threshold: 24
+  - name: Gold
+    threshold: 48
+earned_on: []
+status: Not yet
+earnable: true
+deprecated_reason: ""
+how_earned: "Co-authored a commit on a merged pull request. Use 'Co-authored-by:' trailer in the commit message."
+automatable: true
+automation_difficulty: Trivial
+links:
+  official_doc: "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/personalizing-your-profile#displaying-badges-on-your-profile"
+  community_repo: "https://github.com/drknzz/GitHub-Achievements"
+notes:
+  - "Commit must be on a MERGED PR to count"
+  - "Co-author must be a real GitHub account (can't be fake)"
+  - "Trailer format: 'Co-authored-by: Name <email@example.com>'"
+  - "Can have multiple co-authors per commit — each gets the credit"

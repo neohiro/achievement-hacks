@@ -1,0 +1,27 @@
+slug: galaxy-brain
+name: Galaxy Brain
+emoji: "🧠"
+tiers:
+  - name: Default
+    threshold: 2
+  - name: Bronze
+    threshold: 8
+  - name: Silver
+    threshold: 16
+  - name: Gold
+    threshold: 32
+earned_on: []
+status: Not yet
+earnable: true
+deprecated_reason: ""
+how_earned: "Had an answer accepted in a GitHub Discussion (Q&A category)."
+automatable: false
+automation_difficulty: Medium
+links:
+  official_doc: "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/personalizing-your-profile#displaying-badges-on-your-profile"
+  community_repo: "https://github.com/drknzz/GitHub-Achievements"
+notes:
+  - "Only Q&A category answers that are MARKED ACCEPTED count"
+  - "Open-ended discussion comments do NOT count"
+  - "You can answer your own question (it must be marked accepted by an admin or yourself)"
+  - "Some accounts self-answer accepted by bot"

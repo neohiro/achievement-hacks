@@ -1,0 +1,27 @@
+slug: starstruck
+name: Starstruck
+emoji: "⭐"
+tiers:
+  - name: Default
+    threshold: 16
+  - name: Bronze
+    threshold: 128
+  - name: Silver
+    threshold: 512
+  - name: Gold
+    threshold: 4096
+earned_on: []
+status: Not yet
+earnable: true
+deprecated_reason: ""
+how_earned: "Create a repository that reaches a given star count. Only your single highest-starred repo counts."
+automatable: true
+automation_difficulty: Medium
+links:
+  official_doc: "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/personalizing-your-profile#displaying-badges-on-your-profile"
+  community_repo: "https://github.com/drknzz/GitHub-Achievements"
+notes:
+  - "Only the highest-starred repo you OWN counts at a time"
+  - "Repo must be public"
+  - "Stars from the repo owner themselves do NOT count"
+  - "Skin-tone variants available (set in Appearance → Emoji skin tone)"

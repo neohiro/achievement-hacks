@@ -1,0 +1,21 @@
+slug: mars-2020
+name: Mars 2020 Contributor
+emoji: "🚁"
+tiers:
+  - name: Default
+    threshold: 1
+earned_on: []
+status: Deprecated
+earnable: false
+deprecated_reason: "One-time achievement tied to NASA's Mars 2020 mission. Perseverance rover + Ingenuity helicopter launched July 30, 2020 and landed Feb 18, 2021. GitHub no longer awards this badge."
+how_earned: "Contributed code to a repository that was used by NASA's Mars 2020 mission (Perseverance rover or Ingenuity helicopter)."
+automatable: false
+automation_difficulty: Impossible
+links:
+  official_doc: "https://github.com/nasa-jpl"
+  community_repo: "https://github.com/drknzz/GitHub-Achievements"
+notes:
+  - "Frozen — no longer earnable"
+  - "Tied to a real Mars mission"
+  - "Ingenuity helicopter was the first powered flight on another planet (April 19, 2021)"
+  - "Repositories under github.com/nasa-jpl were candidates"

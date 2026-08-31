@@ -1,0 +1,21 @@
+slug: arctic-code-vault
+name: Arctic Code Vault Contributor
+emoji: "🧊"
+tiers:
+  - name: Default
+    threshold: 1
+earned_on: []
+status: Deprecated
+earnable: false
+deprecated_reason: "GitHub froze this achievement in 2023. No new accounts can earn it. The 2020 GitHub Archive Program was a one-time event; repositories snapshotted into the Arctic Code Vault are no longer being added."
+how_earned: "Contributed code to a repository that was included in the 2020 GitHub Archive Program (snapshotted into the Arctic Code Vault, Svalbard)."
+automatable: false
+automation_difficulty: Impossible
+links:
+  official_doc: "https://archiveprogram.github.com/"
+  community_repo: "https://github.com/drknzz/GitHub-Achievements"
+notes:
+  - "Frozen — no longer earnable"
+  - "Bore-listed contributors still display the badge on their profiles"
+  - "Arctic Code Vault is a real physical archive in Svalbard, Norway"
+  - "The vault contains open source code from Feb 2, 2020"

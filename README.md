@@ -110,7 +110,7 @@ What we *do* document is that several achievements (Quickdraw, YOLO, Heart On Yo
 
 If you'd like to chat about any of this, the maintainers are reachable via Discussions on this repo or by opening an issue.
 
-— The neohiro org
+— Creative Monkey at FrenzyPenguin Media
 
 ---
 

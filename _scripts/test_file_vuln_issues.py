@@ -149,8 +149,9 @@ class TestStopOnError(unittest.TestCase):
     def test_continues_when_stop_on_error_false(self):
         runner = MagicMock(side_effect=lambda cmd: _err(1))
         rc = fvi.file_issues(stop_on_error=False, runner=runner)
-        self.assertEqual(rc, 0, "continues and returns 0 when not stopping")
-        self.assertEqual(runner.call_count, len(fvi.ISSUES))
+        self.assertEqual(runner.call_count, len(fvi.ISSUES),
+                         "must process all issues even on error")
+        self.assertEqual(rc, 1, "returns 1 when any issue fails (even with stop_on_error=False)")
 
 
 class TestGhRun(unittest.TestCase):
@@ -160,7 +161,7 @@ class TestGhRun(unittest.TestCase):
             result = fvi._gh_run(["gh", "issue", "list"])
             mock_sr.assert_called_once_with(
                 ["gh", "issue", "list"],
-                capture_output=True, encoding="utf-8",
+                capture_output=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(result.stdout, "ok")
 
@@ -173,10 +174,11 @@ class TestGhRun(unittest.TestCase):
 
 
 class TestExceptionHandling(unittest.TestCase):
-    def test_file_not_found_returns_zero(self):
+    def test_file_not_found_returns_one(self):
+        """FileNotFoundError means gh is not installed — this is a fatal failure."""
         runner = MagicMock(side_effect=FileNotFoundError("gh not found"))
         rc = fvi.file_issues(runner=runner)
-        self.assertEqual(rc, 0)
+        self.assertEqual(rc, 1)
         self.assertEqual(runner.call_count, len(fvi.ISSUES))
 
     def test_file_not_found_stop_on_error_returns_one(self):
@@ -185,10 +187,11 @@ class TestExceptionHandling(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(runner.call_count, 1)
 
-    def test_generic_exception_returns_zero(self):
+    def test_generic_exception_returns_one(self):
+        """Any unexpected exception is treated as a failure — returns 1."""
         runner = MagicMock(side_effect=RuntimeError("unexpected"))
         rc = fvi.file_issues(runner=runner)
-        self.assertEqual(rc, 0)
+        self.assertEqual(rc, 1)
         self.assertEqual(runner.call_count, len(fvi.ISSUES))
 
     def test_generic_exception_stop_on_error_returns_one(self):
@@ -196,6 +199,70 @@ class TestExceptionHandling(unittest.TestCase):
         rc = fvi.file_issues(stop_on_error=True, runner=runner)
         self.assertEqual(rc, 1)
         self.assertEqual(runner.call_count, 1)
+
+
+class TestRateLimitDetection(unittest.TestCase):
+    def test_detects_429_in_stderr(self):
+        self.assertTrue(fvi._is_rate_limited("API rate limit exceeded: 429"))
+        self.assertTrue(fvi._is_rate_limited("HTTP 429: too many requests"))
+        self.assertTrue(fvi._is_rate_limited("Rate limit reached"))
+
+    def test_ignores_unrelated_errors(self):
+        self.assertFalse(fvi._is_rate_limited(""))
+        self.assertFalse(fvi._is_rate_limited("gh: not logged in"))
+        self.assertFalse(fvi._is_rate_limited("could not resolve to a Repository"))
+
+
+class TestRetry(unittest.TestCase):
+    def test_retry_succeeds_on_second_attempt(self):
+        """A 429 first, then a success should be retried exactly once."""
+        results = [
+            subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="HTTP 429"),
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="https://x/i/1", stderr=""),
+        ]
+        runner = MagicMock(side_effect=results)
+        # Patch _gh_run so we exercise the retry path, not the injected mock
+        with unittest.mock.patch("file_vuln_issues._gh_run", side_effect=results), \
+             unittest.mock.patch("file_vuln_issues.time.sleep") as mock_sleep:
+            result = fvi._retry_gh_run(["gh", "issue", "create"])
+        self.assertEqual(result.returncode, 0)
+        mock_sleep.assert_called_once()  # backed off once before retry
+
+    def test_retry_gives_up_after_max_attempts(self):
+        results = [
+            subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="HTTP 429")
+        ] * 3
+        with unittest.mock.patch("file_vuln_issues._gh_run", side_effect=results), \
+             unittest.mock.patch("file_vuln_issues.time.sleep") as mock_sleep:
+            result = fvi._retry_gh_run(["gh"], max_retries=3)
+        self.assertEqual(result.returncode, 1, "returns last failure after max retries")
+        self.assertEqual(mock_sleep.call_count, 2, "backed off 2 times between 3 attempts")
+
+    def test_retry_does_not_retry_non_rate_limit_failures(self):
+        result = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="not logged in")
+        with unittest.mock.patch("file_vuln_issues._gh_run", return_value=result), \
+             unittest.mock.patch("file_vuln_issues.time.sleep") as mock_sleep:
+            out = fvi._retry_gh_run(["gh"])
+        self.assertEqual(out.returncode, 1)
+        mock_sleep.assert_not_called()
+
+
+class TestScrubSensitive(unittest.TestCase):
+    def test_redacts_ghp_token(self):
+        text = "Error: ghp_abc123DEF456ghi789jkl012mno345pqr678STU for repo x"
+        out = fvi._scrub_sensitive(text)
+        self.assertNotIn("ghp_abc123DEF456", out)
+        self.assertIn("REDACTED", out)
+
+    def test_redacts_pat_token(self):
+        text = "auth: github_pat_11ABCDEFG0_xyz123 is invalid"
+        out = fvi._scrub_sensitive(text)
+        self.assertNotIn("xyz123", out)
+        self.assertIn("REDACTED", out)
+
+    def test_leaves_normal_text_alone(self):
+        text = "gh: command not found"
+        self.assertEqual(fvi._scrub_sensitive(text), text)
 
 
 class TestSecurityAnchors(unittest.TestCase):

@@ -12,6 +12,7 @@ Requires: gh CLI authenticated with repo scope.
 import argparse
 import subprocess
 import sys
+import time
 
 REPO = "neohiro/achievement-hacks"
 
@@ -308,17 +309,68 @@ def build_command(issue):
 
 
 def _gh_run(cmd):
-    """Default runner: wraps subprocess.run with the correct flags for gh."""
-    return subprocess.run(cmd, capture_output=True, encoding="utf-8")
+    """Default runner: wraps subprocess.run with the correct flags for gh.
+
+    Uses errors="replace" so a stray non-UTF8 byte in gh stderr never crashes
+    the whole run. gh rarely emits non-UTF8, but it can happen on Windows
+    when locale is not UTF-8.
+    """
+    return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace")
+
+
+# Rate-limit handling: gh returns HTTP 429 as a non-zero exit code with a
+# Retry-After hint in stderr. We retry with exponential backoff up to 3 times.
+_MAX_RETRIES = 3
+_RETRY_BACKOFF_BASE = 2  # seconds — 2, 4, 8
+
+
+def _is_rate_limited(stderr: str) -> bool:
+    """Heuristic: gh surfaces rate limits as a non-zero exit with a 429-ish message."""
+    return "429" in stderr or "rate limit" in stderr.lower()
+
+
+def _retry_gh_run(cmd, max_retries=_MAX_RETRIES):
+    """Run gh with exponential-backoff retry on rate-limit (429) responses.
+
+    Returns the CompletedProcess from the final attempt. Raises the last
+    exception if every attempt fails.
+    """
+    last_exc = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            result = _gh_run(cmd)
+        except FileNotFoundError:
+            raise  # gh not installed — no point retrying
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                time.sleep(_RETRY_BACKOFF_BASE ** attempt)
+                continue
+            raise
+        if result.returncode == 0:
+            return result
+        if _is_rate_limited(result.stderr) and attempt < max_retries:
+            time.sleep(_RETRY_BACKOFF_BASE ** attempt)
+            continue
+        return result  # non-rate-limit failure — return as-is
+    if last_exc:
+        raise last_exc
+    return result  # pragma: no cover — defensive fallback
 
 
 def file_issues(dry_run=False, stop_on_error=False, runner=None):
     """File all issues. Returns 0 on full success, 1 on first failure (when stop_on_error).
 
     runner: optional callable(cmd) -> CompletedProcess. Defaults to _gh_run.
+          A runner that yields non-zero returncodes on rate-limit will be retried
+          internally by _retry_gh_run when the default runner is used. When an
+          injected mock runner is used (for testing), no retry is applied.
     """
     if runner is None:
-        runner = _gh_run
+        runner = _retry_gh_run
+
+    success_count = 0
+    failure_count = 0
 
     for i, issue in enumerate(ISSUES, 1):
         cmd = build_command(issue)
@@ -331,22 +383,40 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
             result = runner(cmd)
         except FileNotFoundError:
             print(f"ERR: 'gh' CLI not found — install it from https://cli.github.com", file=sys.stderr)
+            failure_count += 1
             if stop_on_error:
                 return 1
             continue
         except Exception as exc:
             print(f"ERR: runner raised {type(exc).__name__}: {exc}", file=sys.stderr)
+            failure_count += 1
             if stop_on_error:
                 return 1
             continue
+
         if result.returncode == 0:
             print(f"OK: {result.stdout.strip()}", file=sys.stderr)
+            success_count += 1
         else:
-            print(f"ERR: {result.stderr.strip()}", file=sys.stderr)
+            # Scrub potential token leaks from stderr before logging
+            safe_err = _scrub_sensitive(result.stderr.strip())
+            print(f"ERR: {safe_err}", file=sys.stderr)
+            failure_count += 1
             if stop_on_error:
                 print(f"Stopping on error at issue {i}.", file=sys.stderr)
                 return 1
-    return 0
+
+    print(f"Summary: {success_count} succeeded, {failure_count} failed out of {len(ISSUES)}", file=sys.stderr)
+    return 1 if failure_count else 0
+
+
+def _scrub_sensitive(text: str) -> str:
+    """Remove likely GitHub token values from error strings before logging."""
+    import re
+    # Mask 'ghp_…' / 'github_pat_…' tokens that might leak via auth errors
+    text = re.sub(r"gh[pousr]_[A-Za-z0-9_]+", "ghp_***REDACTED***", text)
+    text = re.sub(r"github_pat_[A-Za-z0-9_]+", "github_pat_***REDACTED***", text)
+    return text
 
 
 if __name__ == "__main__":

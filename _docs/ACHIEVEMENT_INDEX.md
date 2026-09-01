@@ -1,18 +1,19 @@
 # Achievement Index
 
 Canonical, machine-readable list of all GitHub Achievements known to this repo.
+The single source of truth is `_achievements/<slug>/meta.yaml`. This file and
+`_scripts/list_achievements.py` are both generated from it.
 
-## Schema
+## Achievement list (live)
 
-Each entry maps to `_achievements/<slug>/meta.yaml`. The index is generated from those files by `_scripts/list_achievements.py`.
-
-## Achievement list
+Run `python _scripts/list_achievements.py` to see the current canonical list.
+Last verified on 2026-08-31 against 15 achievement meta.yaml files.
 
 | # | Slug | Name | Tier count | Earnable? | Status |
 |---|---|---|---|---|---|
 | 1 | `starstruck` | Starstruck | 4 (Default → Gold) | Yes | Not yet |
 | 2 | `pull-shark` | Pull Shark | 4 (Default → Gold) | Yes | Not yet |
-| 3 | `pair-extraordinaire` | Pair Extraordinaire | 4 (Default → Gold) | Yes | Not yet |
+| 3 | `pair-extraordinaire` | Pair Extraordinaire | 4 (Default → Gold) | Yes | **Earned** ✅ |
 | 4 | `galaxy-brain` | Galaxy Brain | 4 (Default → Gold) | Yes | Not yet |
 | 5 | `quickdraw` | Quickdraw | 1 | Yes | Not yet |
 | 6 | `yolo` | YOLO | 1 | Yes | Not yet |
@@ -24,21 +25,19 @@ Each entry maps to `_achievements/<slug>/meta.yaml`. The index is generated from
 
 ## Highlights (account-tier, not activity-based)
 
-| Slug | Name | Enrolled? | Status |
-|---|---|---|---|
-| `github-pro` | GitHub Pro | No | Unobtainable |
-| `developer-program-member` | Developer Program Member | No | Unobtainable |
-| `security-bug-bounty-hunter` | Security Bug Bounty Hunter | No | Unobtainable |
-| `github-campus-expert` | GitHub Campus Expert | No | Unobtainable |
-| `security-advisory-credit` | Security Advisory Credit | No | Unobtainable |
+| Slug | Name | Status |
+|---|---|---|
+| `github-pro` | GitHub Pro | Unobtainable |
+| `developer-program-member` | Developer Program Member | Unobtainable |
+| `security-bug-bounty-hunter` | Security Bug Bounty Hunter | Unobtainable |
+| `github-campus-expert` | GitHub Campus Expert | Unobtainable |
+| `security-advisory-credit` | Security Advisory Credit | Unobtainable |
 
 ## How to add a new achievement
 
 1. Create `_achievements/<slug>/meta.yaml` matching `ACHIEVEMENT_FORMAT.md`.
 2. Create `_achievements/<slug>/README.md` following the template.
-3. Create `_achievements/<slug>/earn.sh` and/or `_achievements/<slug>/verify.sh`.
-4. Add a row to this index.
-5. Add a row to `README.md`.
-6. Open a PR.
-
-The index in `README.md` is the human-facing version of this file. They should be kept in sync.
+3. (Optional) Create `_achievements/<slug>/earn.sh` for an automation recipe.
+4. Update the achievement table in this file.
+5. Update the achievement table in `README.md`.
+6. Open a PR. CI will validate the meta.yaml schema.

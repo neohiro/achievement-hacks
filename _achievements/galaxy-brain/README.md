@@ -1,6 +1,6 @@
 # 🧠 Galaxy Brain
 
-> **Status: `In progress`** — Discussions enabled on `neohiro/Heart`, `neohiro/neohiro.github.io`, `neohiro/worldmap`, `neohiro/opencode`, `neohiro/mobile-sync`. First accepted answer pending.
+> **Status: `In progress`** — Q&A discussion #7 created on `neohiro/achievementhacks`. Self-answer posted. Awaiting accept.
 
 ## What it measures
 
@@ -65,8 +65,9 @@ The **deterministic workflow** for the org:
 
 ## neohiro status
 
-- Discussions enabled on: `Heart`, `neohiro.github.io`, `worldmap`, `opencode`, `mobile-sync`, `ExploitProtection`, `dnscrypt-proxy-gui`, `BlackGlass`, `Cripple-NetStrip`, `linux`, `ubuntu`, `windows`, `auto-resume` (13 repos)
-- Need to seed Q&A category + first accepted answer
+- Discussions enabled on: `Heart`, `neohiro.github.io`, `worldmap`, `opencode`, `mobile-sync`, `ExploitProtection`, `dnscrypt-proxy-gui`, `BlackGlass`, `Cripple-NetStrip`, `linux`, `ubuntu`, `windows`, `auto-resume`, `achievementhacks` (14 repos)
+- Q&A discussion #7 created on `neohiro/achievementhacks` — self-answer posted
+- **Step 5 remaining:** mark the answer as accepted (requires browser click or GraphQL mutation)
 - Target: Default (2) by end of week
 
 ## Difficulty assessment

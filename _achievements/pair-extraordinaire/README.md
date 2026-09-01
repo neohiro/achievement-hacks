@@ -1,6 +1,6 @@
 # 👥 Pair Extraordinaire
 
-> **Status: `Not yet`** — neohiro has not been using Co-authored-by trailers on merged PRs.
+> **Status: `Earned`** — PR #8 merged on 2026-08-31 with a co-authored commit. ✅
 
 ## What it measures
 
@@ -79,8 +79,8 @@ Co-authored-by: Their Name <their@email.com>
 
 ## neohiro status
 
-Not yet started. First co-authored merged PR needed.
+✅ Earned via PR #8 "co-authored commit automation" on 2026-08-31. Tiers will now accumulate with each additional qualifying merged PR.
 
 ## Difficulty assessment
 
-**Trivial** — Requires only one real other GitHub account and one merged PR. Hardest part is remembering to add the trailer.
+**Trivial** — Was earned in one PR merge with one real co-author account. Subsequent tiers (Bronze/Silver/Gold) require accumulating additional co-authored merged commits.

@@ -385,11 +385,13 @@ class TestCli(unittest.TestCase):
     def test_help_exits_zero(self):
         proc = subprocess.run(
             [sys.executable, os.path.join(HERE, "file_vuln_issues.py"), "--help"],
-            capture_output=True, encoding="utf-8", timeout=10,
+            capture_output=True, encoding="utf-8", errors="replace", timeout=10,
         )
         self.assertEqual(proc.returncode, 0)
         self.assertIn("--dry-run", proc.stdout)
         self.assertIn("--stop-on-error", proc.stdout)
+        self.assertIn("--sync", proc.stdout,
+                      "new --sync flag must appear in help output")
 
     def test_dry_run_exit_zero(self):
         proc = subprocess.run(

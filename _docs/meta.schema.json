@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/neohiro/achievement-hacks/meta.schema.json",
+  "title": "Achievement meta.yaml schema",
+  "description": "Schema for a GitHub Achievement entry in neohiro/achievement-hacks",
+  "type": "object",
+  "required": ["slug", "name", "emoji", "tiers", "earned_on", "status", "earnable", "how_earned", "automatable", "automation_difficulty"],
+
+  "properties": {
+
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "description": "kebab-case, lowercase, matches folder name"
+    },
+
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Official GitHub display name of the achievement"
+    },
+
+    "emoji": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8,
+      "description": "Primary emoji representation"
+    },
+
+    "badge_url": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "github.githubassets.com URL for the badge image"
+    },
+
+    "tiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "threshold"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "threshold": {
+            "oneOf": [
+              { "type": "integer", "minimum": 0 },
+              { "type": "null", "description": "threshold not publicly disclosed by GitHub" }
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "earned_on": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "GitHub account logins that have earned this achievement"
+    },
+
+    "status": {
+      "type": "string",
+      "enum": [
+        "Not yet",
+        "In progress",
+        "Earned",
+        "Deprecated",
+        "Frozen",
+        "Unobtainable"
+      ]
+    },
+
+    "earnable": {
+      "type": "boolean",
+      "description": "Whether new accounts can still earn this achievement"
+    },
+
+    "deprecated_reason": {
+      "type": "string",
+      "description": "Required when earnable=false"
+    },
+
+    "how_earned": {
+      "type": "string",
+      "minLength": 10,
+      "description": "One-sentence description of the earning mechanism"
+    },
+
+    "automatable": {
+      "type": "boolean"
+    },
+
+    "automation_difficulty": {
+      "type": "string",
+      "enum": ["Trivial", "Easy", "Medium", "Hard", "Impossible"]
+    },
+
+    "links": {
+      "type": "object",
+      "properties": {
+        "official_doc": { "type": ["string", "null"], "format": "uri" },
+        "community_repo": { "type": ["string", "null"], "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Additional human-readable notes"
+    }
+  },
+
+  "additionalProperties": false,
+
+  "if": {
+    "properties": { "earnable": { "const": false } }
+  },
+  "then": {
+    "required": ["deprecated_reason"]
+  },
+
+  "examples": [
+    {
+      "slug": "quickdraw",
+      "name": "Quickdraw",
+      "emoji": "🔫",
+      "tiers": [{ "name": "Default", "threshold": 1 }],
+      "earned_on": [],
+      "status": "Not yet",
+      "earnable": true,
+      "deprecated_reason": "",
+      "how_earned": "Closed an issue within 5 minutes of opening it.",
+      "automatable": true,
+      "automation_difficulty": "Trivial",
+      "links": {
+        "official_doc": "https://docs.github.com/",
+        "community_repo": null
+      }
+    },
+    {
+      "slug": "arctic-code-vault",
+      "name": "Arctic Code Vault Contributor",
+      "emoji": "🧊",
+      "tiers": [{ "name": "Default", "threshold": 1 }],
+      "earned_on": [],
+      "status": "Deprecated",
+      "earnable": false,
+      "deprecated_reason": "GitHub froze this in 2023.",
+      "how_earned": "Contributed to a repo in the GitHub Archive Program.",
+      "automatable": false,
+      "automation_difficulty": "Impossible",
+      "links": { "official_doc": null, "community_repo": null }
+    }
+  ]
+}

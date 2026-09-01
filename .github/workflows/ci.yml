@@ -20,11 +20,14 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install pyyaml
-        run: pip install pyyaml
+      - name: Install dependencies
+        run: pip install pyyaml jsonschema
 
-      - name: Validate meta.yaml files
+      - name: Validate meta.yaml files (YAML parse)
         run: python _scripts/list_achievements.py --check
+
+      - name: Validate meta.yaml files (JSON Schema strict)
+        run: python _scripts/list_achievements.py --validate-schema --check
 
       - name: Run unit tests
         run: python _scripts/test_file_vuln_issues.py

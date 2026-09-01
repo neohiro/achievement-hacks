@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""file_vuln_issues.py — File GitHub Issues for achievement-hacking vulnerabilities.
+"""file_vuln_issues.py — File or sync GitHub Issues for achievement-hacking vulnerabilities.
 
 Usage:
-    python file_vuln_issues.py              # file all issues
-    python file_vuln_issues.py --dry-run     # print what would be filed
-    python file_vuln_issues.py --stop-on-error  # exit on first failure
+    python file_vuln_issues.py                    # file all issues (creates new)
+    python file_vuln_issues.py --dry-run          # print what would be filed/updated
+    python file_vuln_issues.py --stop-on-error    # exit on first filing failure
+    python file_vuln_issues.py --sync             # idempotent sync (update or create)
+    python file_vuln_issues.py --sync --dry-run   # show what sync would do
 
 Requires: gh CLI authenticated with repo scope.
 """
@@ -413,16 +415,161 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
 def _scrub_sensitive(text: str) -> str:
     """Remove likely GitHub token values from error strings before logging."""
     import re
-    # Mask 'ghp_…' / 'github_pat_…' tokens that might leak via auth errors
     text = re.sub(r"gh[pousr]_[A-Za-z0-9_]+", "ghp_***REDACTED***", text)
     text = re.sub(r"github_pat_[A-Za-z0-9_]+", "github_pat_***REDACTED***", text)
     return text
 
 
+def _extract_vuln_id(title: str) -> str | None:
+    """Return the VULN-### prefix from an issue title, or None."""
+    import re
+    m = re.search(r"\[(VULN-\d{3})\]", title)
+    return m.group(1) if m else None
+
+
+def _fetch_existing_issues(runner=None) -> dict[str, dict]:
+    """Fetch all open/closed issues labeled 'vulnerability' for this repo.
+
+    Returns a dict keyed by VULN-### id -> {number, title, body, state}.
+    Uses _retry_gh_run so rate-limits are retried.
+    """
+    if runner is None:
+        runner = _retry_gh_run
+
+    result = runner(["gh", "issue", "list",
+                     "--repo", REPO,
+                     "--json", "number,title,body,state",
+                     "--label", "vulnerability",
+                     "--state", "all",
+                     "--limit", "100"])
+    if result.returncode != 0:
+        raise RuntimeError(f"gh issue list failed: {result.stderr.strip()}")
+    import json
+    raw = result.stdout.strip()
+    if not raw:
+        return {}
+    try:
+        issues = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"gh issue list returned invalid JSON: {exc}\n{raw[:200]}")
+
+    out = {}
+    for issue in issues:
+        vid = _extract_vuln_id(issue.get("title", ""))
+        if vid:
+            out[vid] = issue
+    return out
+
+
+def _body_matches(local_body: str, remote_body: str) -> bool:
+    """Return True if local_body and remote_body are equivalent for sync purposes.
+
+    Compares after stripping trailing whitespace. Whitespace differences in
+    multi-line bodies are ignored. This handles CRLF/LF differences between
+    platforms and formatting variation in how the body was written.
+    """
+    import difflib
+    local_lines = [ln.rstrip() for ln in local_body.splitlines()]
+    remote_lines = [ln.rstrip() for ln in remote_body.splitlines()]
+    diff = list(difflib.unified_diff(remote_lines, local_lines, lineterm=""))
+    return len(diff) == 0
+
+
+def sync_issues(dry_run=False, runner=None):
+    """Fetch existing VULN-### issues and update any whose body differs from ISSUES.
+
+    Idempotent: safe to run repeatedly. Issues are matched by their [VULN-###]
+    title prefix. Only issues labeled 'vulnerability' are considered.
+
+    Returns exit code: 0 = all up to date (or all dry-run changes applied),
+                      1 = at least one real update failed.
+    """
+    if runner is None:
+        runner = _retry_gh_run
+
+    print(f"[SYNC] Fetching existing issues from {REPO} ...", file=sys.stderr)
+    try:
+        existing = _fetch_existing_issues(runner=runner)
+    except RuntimeError as exc:
+        print(f"ERR: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"[SYNC] Found {len(existing)} existing vulnerability issues.", file=sys.stderr)
+
+    create_needed = {i: issue for i, issue in enumerate(ISSUES)
+                     if _extract_vuln_id(issue["title"]) not in existing}
+    update_needed = []
+    up_to_date = []
+
+    for issue in ISSUES:
+        vid = _extract_vuln_id(issue["title"])
+        if vid and vid in existing:
+            remote = existing[vid]
+            if _body_matches(issue["body"], remote.get("body", "")):
+                up_to_date.append(vid)
+            else:
+                update_needed.append((vid, remote["number"], issue))
+
+    created = updated = failed = 0
+
+    for vid in up_to_date:
+        print(f"[SYNC] OK     {vid}: up to date", file=sys.stderr)
+
+    for issue in create_needed.values():
+        vid = _extract_vuln_id(issue["title"]) or "?"
+        print(f"[SYNC] CREATE {vid}: {issue['title'][:60]} ...", file=sys.stderr)
+        if not dry_run:
+            cmd = build_command(issue)
+            try:
+                result = runner(cmd)
+            except Exception as exc:
+                print(f"[SYNC] ERR    {vid}: runner raised {type(exc).__name__}: {exc}", file=sys.stderr)
+                failed += 1
+                continue
+            if result.returncode == 0:
+                print(f"[SYNC] CREATED: {result.stdout.strip()}", file=sys.stderr)
+                created += 1
+            else:
+                print(f"[SYNC] ERR    {vid}: {_scrub_sensitive(result.stderr.strip())}", file=sys.stderr)
+                failed += 1
+
+    for vid, number, issue in update_needed:
+        print(f"[SYNC] UPDATE {vid} (#{number}): {issue['title'][:60]} ...", file=sys.stderr)
+        if not dry_run:
+            import tempfile
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".md", delete=False, encoding="utf-8"
+            ) as f:
+                f.write(issue["body"])
+                tmp = f.name
+            result = runner(["gh", "issue", "edit", str(number),
+                             "--repo", REPO, "--body-file", tmp])
+            import os
+            os.unlink(tmp)
+            if result.returncode == 0:
+                print(f"[SYNC] UPDATED: #{number}", file=sys.stderr)
+                updated += 1
+            else:
+                print(f"[SYNC] ERR    {vid}: {_scrub_sensitive(result.stderr.strip())}", file=sys.stderr)
+                failed += 1
+
+    print(f"[SYNC] Done. Up-to-date={len(up_to_date)}  Created={created}  "
+          f"Updated={updated}  Failed={failed}", file=sys.stderr)
+    return 1 if failed else 0
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="File GitHub Issues for achievement-hacking vulnerabilities.")
-    parser.add_argument("--dry-run", action="store_true", help="Print what would be filed without filing")
+    parser = argparse.ArgumentParser(
+        description="File or sync GitHub Issues for achievement-hacking vulnerabilities."
+    )
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Print what would be filed/updated without doing it")
     parser.add_argument("--stop-on-error", action="store_true",
                         help="Exit on first filing failure instead of continuing")
+    parser.add_argument("--sync", action="store_true",
+                        help="Sync: fetch existing issues, update any that differ from local ISSUES. "
+                             "Safe to run repeatedly — idempotent.")
     args = parser.parse_args()
+    if args.sync:
+        sys.exit(sync_issues(dry_run=args.dry_run))
     sys.exit(file_issues(dry_run=args.dry_run, stop_on_error=args.stop_on_error))

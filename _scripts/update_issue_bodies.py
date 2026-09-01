@@ -7,7 +7,13 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).parent
+sys.path.insert(0, str(SCRIPT_DIR))
+from _utils import scrub_sensitive  # noqa: E402
 
 ANCHORS = {
     1: "vuln-001-quickdraw-sub-5-minute-issuepr-close-loop",
@@ -30,7 +36,7 @@ def gh(*args):
     )
     if result.returncode != 0:
         sub = args[1] if len(args) > 1 else "?"
-        print(f"ERR [{args[0]} #{sub}]: {result.stderr.strip()}")
+        print(f"ERR [{args[0]} #{sub}]: {scrub_sensitive(result.stderr.strip())}")
         return None
     return result.stdout
 
@@ -63,9 +69,12 @@ def main():
             ) as f:
                 f.write(new_body)
                 tmp = f.name
-            gh("issue", "edit", str(num), "--repo", REPO, "--body-file", tmp)
+            result = gh("issue", "edit", str(num), "--repo", REPO, "--body-file", tmp)
             os.unlink(tmp)
-            print(f"Issue #{num}: updated anchor to {anchor}")
+            if result is None:
+                print(f"Issue #{num}: edit failed")
+            else:
+                print(f"Issue #{num}: updated anchor to {anchor}")
 
     print("\nDone.")
 

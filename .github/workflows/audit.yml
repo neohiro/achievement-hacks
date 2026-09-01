@@ -44,7 +44,8 @@ jobs:
         id: diff_check
         run: |
           set +e
-          SNAPSHOTS=($(ls -t _docs/audit/snapshot-*.json))
+          # Use readarray to safely handle empty glob (bash 3 compatible)
+          readarray -t SNAPSHOTS < <(ls -t _docs/audit/snapshot-*.json 2>/dev/null)
           CURRENT="${SNAPSHOTS[0]}"
           PREV="${SNAPSHOTS[1]}"
           if [ -z "$PREV" ]; then
@@ -99,8 +100,11 @@ jobs:
 
       - name: Prune old snapshots (keep last 12)
         run: |
-          ls -t _docs/audit/snapshot-*.json | tail -n +13 | xargs rm -f 2>/dev/null || true
-          echo "Kept $(ls _docs/audit/snapshot-*.json | wc -l) snapshots (max 12)"
+          set +e
+          # Use find to avoid 'ls' failing when the glob has zero matches under set -e
+          find _docs/audit -maxdepth 1 -name 'snapshot-*.json' -type f -printf '%T@ %p\n' \
+            | sort -rn | tail -n +13 | awk '{print $2}' | xargs -r rm -f
+          echo "Kept $(find _docs/audit -maxdepth 1 -name 'snapshot-*.json' -type f | wc -l) snapshots (max 12)"
 
       - name: Commit new snapshot
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

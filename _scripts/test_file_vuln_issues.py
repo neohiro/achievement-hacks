@@ -247,19 +247,39 @@ class TestRetry(unittest.TestCase):
 class TestScrubSensitive(unittest.TestCase):
     def test_redacts_ghp_token(self):
         text = "Error: ghp_abc123DEF456ghi789jkl012mno345pqr678STU for repo x"
-        out = fvi._scrub_sensitive(text)
+        out = fvi.scrub_sensitive(text)
         self.assertNotIn("ghp_abc123DEF456", out)
         self.assertIn("REDACTED", out)
 
     def test_redacts_pat_token(self):
         text = "auth: github_pat_11ABCDEFG0_xyz123 is invalid"
-        out = fvi._scrub_sensitive(text)
+        out = fvi.scrub_sensitive(text)
         self.assertNotIn("xyz123", out)
         self.assertIn("REDACTED", out)
 
     def test_leaves_normal_text_alone(self):
         text = "gh: command not found"
-        self.assertEqual(fvi._scrub_sensitive(text), text)
+        self.assertEqual(fvi.scrub_sensitive(text), text)
+
+    def test_redacts_gho_token(self):
+        text = "Error: gho_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA is invalid"
+        out = fvi.scrub_sensitive(text)
+        self.assertNotIn("gho_", out)
+        self.assertIn("***REDACTED***", out)
+
+    def test_redacts_ghs_token(self):
+        text = "auth: ghs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx failed"
+        out = fvi.scrub_sensitive(text)
+        self.assertNotIn("ghs_", out)
+        self.assertIn("***REDACTED***", out)
+
+    def test_redacts_multiple_tokens(self):
+        text = "ghp_AAA github_pat_xxx gho_BBB ghs_CCC"
+        out = fvi.scrub_sensitive(text)
+        self.assertNotIn("ghp_AAA", out)
+        self.assertNotIn("github_pat_xxx", out)
+        self.assertNotIn("gho_BBB", out)
+        self.assertNotIn("ghs_CCC", out)
 
 
 # Characters to strip in slugify_heading (em-dash, en-dash, punctuation).

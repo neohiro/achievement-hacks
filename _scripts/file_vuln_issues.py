@@ -20,6 +20,11 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).parent.resolve()
+sys.path.insert(0, str(SCRIPT_DIR))
+from _utils import scrub_sensitive  # noqa: E402
 
 REPO = "neohiro/achievement-hacks"
 
@@ -406,7 +411,7 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
             success_count += 1
         else:
             # Scrub potential token leaks from stderr before logging
-            safe_err = _scrub_sensitive(result.stderr.strip())
+            safe_err = scrub_sensitive(result.stderr.strip())
             print(f"ERR: {safe_err}", file=sys.stderr)
             failure_count += 1
             if stop_on_error:
@@ -415,12 +420,6 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
 
     print(f"Summary: {success_count} succeeded, {failure_count} failed out of {len(ISSUES)}", file=sys.stderr)
     return 1 if failure_count else 0
-
-
-def _scrub_sensitive(text: str) -> str:
-    """Remove likely GitHub token values from error strings before logging."""
-    text = re.sub(r"gh[pousr]_[A-Za-z0-9_]+", "ghp_***REDACTED***", text)
-    return re.sub(r"github_pat_[A-Za-z0-9_]+", "github_pat_***REDACTED***", text)
 
 
 def _extract_vuln_id(title: str) -> str | None:
@@ -445,7 +444,8 @@ def _fetch_existing_issues(runner=None) -> dict[str, dict]:
                      "--state", "all",
                      "--limit", "100"])
     if result.returncode != 0:
-        raise RuntimeError(f"gh issue list failed: {result.stderr.strip()}")
+        # Scrub tokens before surfacing stderr into an exception message
+        raise RuntimeError(f"gh issue list failed: {scrub_sensitive(result.stderr.strip())}")
     raw = result.stdout.strip()
     if not raw:
         return {}
@@ -590,7 +590,7 @@ def sync_issues(dry_run=False, format="summary", runner=None):
                 print(f"[SYNC] CREATED: {result.stdout.strip()}", file=sys.stderr)
                 created += 1
             else:
-                print(f"[SYNC] ERR    {vid}: {_scrub_sensitive(result.stderr.strip())}", file=sys.stderr)
+                print(f"[SYNC] ERR    {vid}: {scrub_sensitive(result.stderr.strip())}", file=sys.stderr)
                 failed += 1
 
     for vid, number, issue in update_needed:
@@ -608,7 +608,7 @@ def sync_issues(dry_run=False, format="summary", runner=None):
                 print(f"[SYNC] UPDATED: #{number}", file=sys.stderr)
                 updated += 1
             else:
-                print(f"[SYNC] ERR    {vid}: {_scrub_sensitive(result.stderr.strip())}", file=sys.stderr)
+                print(f"[SYNC] ERR    {vid}: {scrub_sensitive(result.stderr.strip())}", file=sys.stderr)
                 failed += 1
 
     print(f"[SYNC] Done. Up-to-date={len(up_to_date)}  Created={created}  "

@@ -40,6 +40,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent
 SCRIPT_DIR = Path(__file__).parent
 
+sys.path.insert(0, str(SCRIPT_DIR))
+from _utils import scrub_sensitive  # noqa: E402
+
 # Ensure stdout can print emoji on Windows (default cp1252 cannot).
 with suppress(AttributeError, ValueError):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -89,7 +92,7 @@ def _fetch_profile_html(login: str) -> str:
         capture_output=True, encoding="utf-8", errors="replace",
     )
     if result.returncode != 0:
-        raise RuntimeError(f"gh api users/{login} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"gh api users/{login} failed: {scrub_sensitive(result.stderr.strip())}")
     return result.stdout
 
 
@@ -99,7 +102,7 @@ def _gh_run_json(cmd: list[str]) -> dict:
         cmd, capture_output=True, encoding="utf-8", errors="replace",
     )
     if result.returncode != 0:
-        raise RuntimeError(f"gh {' '.join(cmd[:3])} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"gh {' '.join(cmd[:3])} failed: {scrub_sensitive(result.stderr.strip())}")
     raw = result.stdout.strip()
     if not raw:
         return {}

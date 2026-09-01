@@ -10,11 +10,11 @@ tiers:
     threshold: 24
   - name: Gold
     threshold: 48
-earned_on: []
-status: Not yet
+earned_on: ["neohiro"]
+status: Earned
 earnable: true
 deprecated_reason: ""
-how_earned: "Co-authored a commit on a merged pull request. Use 'Co-authored-by:' trailer in the commit message."
+how_earned: "Co-authored a commit on merged PR #8 via automated script."
 automatable: true
 automation_difficulty: Trivial
 links:

@@ -6,6 +6,7 @@ Run:  python -m unittest _scripts/test_file_vuln_issues.py -v
 or:   python _scripts/test_file_vuln_issues.py
 """
 import os
+import re
 import subprocess
 import sys
 import unittest
@@ -265,8 +266,56 @@ class TestScrubSensitive(unittest.TestCase):
         self.assertEqual(fvi._scrub_sensitive(text), text)
 
 
+class TestSlugifyHeading(unittest.TestCase):
+    """Verify the GitHub-compatible heading slugifier behaves correctly.
+
+    The previous version incorrectly kept `—` (em-dash) as `--`, producing
+    anchor links that didn't match the real GitHub-rendered slugs. These
+    tests pin down the correct behavior so a future regression is caught.
+    """
+
+    def setUp(self):
+        from test_file_vuln_issues import TestSecurityAnchors
+        self.slugify = TestSecurityAnchors._slugify_heading
+
+    def test_em_dash_collapses_to_single_hyphen(self):
+        self.assertEqual(
+            self.slugify("VULN-001: Quickdraw — Sub-5-Minute Issue/PR Close Loop"),
+            "vuln-001-quickdraw-sub-5-minute-issuepr-close-loop",
+        )
+
+    def test_colons_and_parens_stripped(self):
+        self.assertEqual(
+            self.slugify("VULN-002: YOLO (something)"),
+            "vuln-002-yolo-something",
+        )
+
+    def test_consecutive_hyphens_collapsed(self):
+        self.assertEqual(
+            self.slugify("foo --- bar"),
+            "foo-bar",
+        )
+
+    def test_lowercases(self):
+        self.assertEqual(self.slugify("HELLO World"), "hello-world")
+
+    def test_leading_trailing_hyphens_stripped(self):
+        self.assertEqual(self.slugify("  --hi--  "), "hi")
+
+    def test_pure_unicode_stripped(self):
+        self.assertEqual(self.slugify("🎓 Campus Expert"), "campus-expert")
+
+
 class TestSecurityAnchors(unittest.TestCase):
-    """Verify every SECURITY.md anchor referenced in issue bodies resolves to a heading."""
+    """Verify every SECURITY.md anchor referenced in issue bodies resolves to a heading.
+
+    Uses the correct GitHub-compatible slugifier that:
+      1. Replaces unicode punctuation (em-dash, en-dash, etc.) with ASCII equivalents
+      2. Replaces spaces with hyphens
+      3. Removes non-alphanumeric characters except hyphens
+      4. Collapses consecutive hyphens to one
+      5. Strips leading/trailing hyphens
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -275,28 +324,61 @@ class TestSecurityAnchors(unittest.TestCase):
             cls.sec_content = f.read()
 
     @staticmethod
-    def _heading_to_slug(heading_text):
-        """Match github-slugger: spaces->hyphens first, then strip non-alnum/hyphen."""
-        import re
-        slug = heading_text.lower().strip()
-        slug = re.sub(r"[\s]+", "-", slug)
-        slug = re.sub(r"[^\w-]", "", slug)
+    def _slugify_heading(heading: str) -> str:
+        """GitHub-compatible heading-to-anchor slugifier.
+
+        Matches the algorithm GitHub uses to render heading anchor IDs.
+        Handles:
+          - Unicode punctuation (em-dash → '-', en-dash → '-')
+          - Forward slashes, ampersands, parens → stripped
+          - Consecutive hyphens collapsed to one
+          - Leading/trailing hyphens stripped
+        """
+        import unicodedata
+
+        slug = heading.lower()
+        slug = unicodedata.normalize("NFKD", slug)
+        # Replace unicode punctuation that GitHub treats as word separators
+        for old, new in [
+            ("—", "-"),   # em-dash
+            ("–", "-"),   # en-dash
+            ("—", "-"),   # left/right em-dash variants
+            (":", ""),
+            ("(", ""),
+            (")", ""),
+            ("/", ""),
+            ("&", ""),
+            ("'", ""),
+            (".", ""),
+            (",", ""),
+        ]:
+            slug = slug.replace(old, new)
+        # Spaces → hyphens
+        slug = re.sub(r"\s+", "-", slug)
+        # Remove any remaining non-alphanumeric (keep hyphens)
+        slug = re.sub(r"[^a-z0-9-]", "", slug)
+        # Collapse consecutive hyphens
+        slug = re.sub(r"-+", "-", slug)
         return slug.strip("-")
 
     def test_all_anchored_links_resolve(self):
-        import re
         sec_headings = re.findall(r"^#{1,6}\s+(.+)$", self.sec_content, re.MULTILINE)
-        valid_slugs = {self._heading_to_slug(h) for h in sec_headings}
+        valid_slugs = {self._slugify_heading(h) for h in sec_headings}
 
         all_anchors = []
         for issue in fvi.ISSUES:
             all_anchors += re.findall(r"SECURITY\.md#([\w-]+)", issue["body"])
 
-        for anchor in set(all_anchors):
-            self.assertIn(
-                anchor, valid_slugs,
-                f"anchor #{anchor} referenced in issue body but no matching heading in SECURITY.md",
-            )
+        failures = []
+        for anchor in sorted(set(all_anchors)):
+            if anchor not in valid_slugs:
+                failures.append(anchor)
+
+        self.assertEqual(
+            failures, [],
+            f"These anchor(s) have no matching heading in SECURITY.md: {failures}\n"
+            f"Expected slugs (sample): {sorted(valid_slugs)[:6]}",
+        )
 
 
 class TestCli(unittest.TestCase):

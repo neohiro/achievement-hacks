@@ -38,7 +38,7 @@ api.close_issue(repo, issue.number)  # < 1 second later
 
 Reference implementation: [neohiro/achievement-hacks/_achievements/quickdraw/earn.sh](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/quickdraw/earn.sh)
 
-Full security analysis: see [SECURITY.md#vuln-001-quickdraw--sub-5-minute-issuepr-close-loop](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-001-quickdraw--sub-5-minute-issuepr-close-loop)
+Full security analysis: see [SECURITY.md#vuln-001-quickdraw-sub-5-minute-issuepr-close-loop](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-001-quickdraw-sub-5-minute-issuepr-close-loop)
 
 ## Impact
 
@@ -98,7 +98,7 @@ Reference: [neohiro/achievement-hacks/_achievements/yolo/README.md](https://gith
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-002-yolo--review-free-merge-via-admin-override)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-002-yolo-review-free-merge-via-admin-override)
 - [neohiro/achievement-hacks README](https://github.com/neohiro/achievement-hacks)
 
 ## Disclosure
@@ -145,7 +145,7 @@ Reference: [neohiro/achievement-hacks/_achievements/heart-on-your-sleeve/README.
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-003-heart-on-your-sleeve--mass-reaction-automation)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-003-heart-on-your-sleeve-mass-reaction-automation)
 
 ## Disclosure
 
@@ -192,7 +192,7 @@ Reference: [neohiro/achievement-hacks/_achievements/pair-extraordinaire/README.m
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-004-pair-extraordinaire--co-author-trailer-abuse)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-004-pair-extraordinaire-co-author-trailer-abuse)
 - [GitHub co-author documentation](https://docs.github.com/en/pull-requests/committing-changes-to-your-project/creating-and-editing-commits/creating-a-commit-with-multiple-authors)
 
 ## Disclosure
@@ -238,7 +238,7 @@ Reference: [neohiro/achievement-hacks/_achievements/pull-shark/README.md](https:
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-005-pull-shark--automated-pr-farming)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-005-pull-shark-automated-pr-farming)
 
 ## Disclosure
 
@@ -282,7 +282,7 @@ Reference: [neohiro/achievement-hacks/_achievements/galaxy-brain/README.md](http
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-006-galaxy-brain--discussion-self-answer-abuse)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-006-galaxy-brain-discussion-self-answer-abuse)
 
 ## Disclosure
 

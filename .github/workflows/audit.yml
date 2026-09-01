@@ -1,0 +1,112 @@
+name: Achievement Audit
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"   # 09:00 UTC every Monday
+  workflow_dispatch:               # allow manual trigger
+
+  # Also run after every commit to main so the snapshot stays current
+  push:
+    branches: [main]
+    paths:
+      - "_achievements/**"
+      - "_docs/meta.schema.json"
+      - "_scripts/**"
+
+jobs:
+  audit:
+    name: Audit neohiro achievements
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml jsonschema
+
+      - name: Run achievement audit
+        id: audit
+        run: |
+          mkdir -p _docs/audit
+          python _scripts/grant_check.py --json neohiro > "_docs/audit/snapshot-$(date +%Y%m%d-%H%M%S).json"
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+          echo "snapshot=$(ls -t _docs/audit/snapshot-*.json | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Check achievement diff against previous snapshot
+        id: diff_check
+        run: |
+          set +e
+          SNAPSHOTS=($(ls -t _docs/audit/snapshot-*.json))
+          CURRENT="${SNAPSHOTS[0]}"
+          PREV="${SNAPSHOTS[1]}"
+          if [ -z "$PREV" ]; then
+            echo "status=first_snapshot" >> $GITHUB_OUTPUT
+            echo "No previous snapshot to diff against." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          python -c "
+          import json, sys
+          curr = json.load(open('$CURRENT'))
+          prev = json.load(open('$PREV'))
+          changes = []
+          for key in set(list(curr) + list(prev)):
+            c = curr.get(key)
+            p = prev.get(key)
+            if c != p:
+              changes.append((key, p, c))
+          if changes:
+            print('CHANGES_DETECTED')
+            for key, old, new in changes:
+              print(f'  {key}: {old!r} -> {new!r}')
+            sys.exit(1)
+          else:
+            print('NO_CHANGES')
+          "
+          status=$?
+          echo "status=$( [ $status -eq 0 ] && echo 'no_changes' || echo 'changes_detected' )" >> $GITHUB_OUTPUT
+          if [ $status -eq 1 ]; then
+            echo "## Achievement Audit: Changes Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            python -c "
+            import json
+            curr = json.load(open('$CURRENT'))
+            prev = json.load(open('$PREV'))
+            for key in sorted(set(list(curr) + list(prev))):
+              c = curr.get(key)
+              p = prev.get(key)
+              if c != p:
+                print(f'- **{key}**: {p!r} -> {c!r}')
+            " >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Snapshot: \`$CURRENT\`" >> $GITHUB_STEP_SUMMARY
+            echo "Previous: \`$PREV\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Achievement Audit: No Changes" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Achievement status for \`neohiro\` is unchanged from the last run." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Prune old snapshots (keep last 12)
+        run: |
+          ls -t _docs/audit/snapshot-*.json | tail -n +13 | xargs rm -f 2>/dev/null || true
+          echo "Kept $(ls _docs/audit/snapshot-*.json | wc -l) snapshots (max 12)"
+
+      - name: Commit new snapshot
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add _docs/audit/
+          git diff --staged --quiet || git commit -m "chore: commit achievement audit snapshot $(date -u +%Y-%m-%d)"
+          git push

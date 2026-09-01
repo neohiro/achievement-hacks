@@ -393,6 +393,8 @@ class TestCli(unittest.TestCase):
         self.assertIn("--stop-on-error", proc.stdout)
         self.assertIn("--sync", proc.stdout,
                       "new --sync flag must appear in help output")
+        self.assertIn("--format", proc.stdout,
+                      "--format flag must appear in help output")
 
     def test_dry_run_exit_zero(self):
         proc = subprocess.run(
@@ -410,6 +412,71 @@ class TestCli(unittest.TestCase):
             capture_output=True, encoding="utf-8", timeout=10,
         )
         self.assertNotEqual(proc.returncode, 0)
+
+
+class TestSyncFormat(unittest.TestCase):
+    """Tests for the --sync --format {summary,diff,json} modes."""
+
+    def test_sync_format_summary_exits_zero(self):
+        proc = subprocess.run(
+            [sys.executable, os.path.join(HERE, "file_vuln_issues.py"),
+             "--sync", "--dry-run", "--format", "summary"],
+            capture_output=True, encoding="utf-8", errors="replace", timeout=30,
+        )
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("[SYNC]", proc.stderr)
+        self.assertIn("Found 6 existing vulnerability issues.", proc.stderr)
+
+    def test_sync_format_diff_exits_zero(self):
+        proc = subprocess.run(
+            [sys.executable, os.path.join(HERE, "file_vuln_issues.py"),
+             "--sync", "--dry-run", "--format", "diff"],
+            capture_output=True, encoding="utf-8", errors="replace", timeout=30,
+        )
+        self.assertEqual(proc.returncode, 0)
+
+    def test_sync_format_json_exits_zero(self):
+        proc = subprocess.run(
+            [sys.executable, os.path.join(HERE, "file_vuln_issues.py"),
+             "--sync", "--dry-run", "--format", "json"],
+            capture_output=True, encoding="utf-8", errors="replace", timeout=30,
+        )
+        self.assertEqual(proc.returncode, 0)
+        import json
+        data = json.loads(proc.stdout)
+        self.assertIn("up_to_date", data)
+        self.assertIn("create_needed", data)
+        self.assertIn("update_needed", data)
+
+    def test_sync_format_unknown_exits_nonzero(self):
+        proc = subprocess.run(
+            [sys.executable, os.path.join(HERE, "file_vuln_issues.py"),
+             "--sync", "--format", "toml"],
+            capture_output=True, encoding="utf-8", errors="replace", timeout=10,
+        )
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_body_diff_produces_unified_diff(self):
+        import file_vuln_issues as fvi
+        diff = fvi._body_diff(
+            "line 1\nline 2\nline 3",
+            "line 1\nline CHANGED\nline 3",
+            local_label="local", remote_label="remote",
+        )
+        self.assertIn("--- remote", diff)
+        self.assertIn("+++ local", diff)
+        self.assertIn("-line CHANGED", diff)
+        self.assertIn("+line 2", diff)
+
+    def test_body_diff_empty_when_identical(self):
+        import file_vuln_issues as fvi
+        diff = fvi._body_diff("hello\nworld", "hello\nworld")
+        self.assertEqual(diff, "")
+
+    def test_body_diff_crlf_ignored(self):
+        import file_vuln_issues as fvi
+        diff = fvi._body_diff("hello\r\nworld", "hello\nworld")
+        self.assertEqual(diff, "")
 
 
 if __name__ == "__main__":

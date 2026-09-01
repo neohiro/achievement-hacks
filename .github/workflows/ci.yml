@@ -23,14 +23,11 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml jsonschema
 
-      - name: Validate meta.yaml files (YAML parse)
-        run: python _scripts/list_achievements.py --check
+      - name: Install ruff
+        run: pip install ruff
 
-      - name: Validate meta.yaml files (JSON Schema strict)
-        run: python _scripts/list_achievements.py --validate-schema --check
-
-      - name: Run unit tests
-        run: python _scripts/test_file_vuln_issues.py
+      - name: Run full validation
+        run: python _scripts/neohiro_validate.py
 
       - name: Print achievement table
         run: python _scripts/list_achievements.py

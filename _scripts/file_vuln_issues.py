@@ -7,6 +7,8 @@ Usage:
     python file_vuln_issues.py --stop-on-error    # exit on first filing failure
     python file_vuln_issues.py --sync             # idempotent sync (update or create)
     python file_vuln_issues.py --sync --dry-run   # show what sync would do
+    python file_vuln_issues.py --sync --format diff   # show unified diffs of drifted issues
+    python file_vuln_issues.py --sync --format json   # show full plan as JSON
 
 Requires: gh CLI authenticated with repo scope.
 """
@@ -460,6 +462,24 @@ def _fetch_existing_issues(runner=None) -> dict[str, dict]:
     return out
 
 
+def _body_diff(local_body: str, remote_body: str, local_label: str = "local",
+               remote_label: str = "remote") -> str:
+    """Return a unified diff between remote and local issue bodies.
+
+    Trailing whitespace is stripped to avoid spurious diffs from CRLF/LF
+    conversion. Returns an empty string if bodies are equivalent.
+    """
+    import difflib
+    local_lines = [ln.rstrip() for ln in local_body.splitlines(keepends=False)]
+    remote_lines = [ln.rstrip() for ln in remote_body.splitlines(keepends=False)]
+    diff = list(difflib.unified_diff(
+        remote_lines, local_lines,
+        fromfile=remote_label, tofile=local_label,
+        lineterm="",
+    ))
+    return "\n".join(diff)
+
+
 def _body_matches(local_body: str, remote_body: str) -> bool:
     """Return True if local_body and remote_body are equivalent for sync purposes.
 
@@ -467,17 +487,19 @@ def _body_matches(local_body: str, remote_body: str) -> bool:
     multi-line bodies are ignored. This handles CRLF/LF differences between
     platforms and formatting variation in how the body was written.
     """
-    import difflib
-    local_lines = [ln.rstrip() for ln in local_body.splitlines()]
-    remote_lines = [ln.rstrip() for ln in remote_body.splitlines()]
-    return not list(difflib.unified_diff(remote_lines, local_lines, lineterm=""))
+    return not _body_diff(local_body, remote_body, local_label="L", remote_label="R")
 
 
-def sync_issues(dry_run=False, runner=None):
+def sync_issues(dry_run=False, format="summary", runner=None):
     """Fetch existing VULN-### issues and update any whose body differs from ISSUES.
 
     Idempotent: safe to run repeatedly. Issues are matched by their [VULN-###]
     title prefix. Only issues labeled 'vulnerability' are considered.
+
+    format:
+      - "summary" (default): one-line status per issue
+      - "diff": print unified diff for every drifted issue
+      - "json": print a single JSON object with the full plan
 
     Returns exit code: 0 = all up to date (or all dry-run changes applied),
                       1 = at least one real update failed.
@@ -508,6 +530,46 @@ def sync_issues(dry_run=False, runner=None):
             else:
                 update_needed.append((vid, remote["number"], issue))
 
+    # --- emit plan ----------------------------------------------------
+    if format == "json":
+        plan = {
+            "up_to_date": up_to_date,
+            "create_needed": [
+                {"vuln_id": _extract_vuln_id(i["title"]) or "?", "title": i["title"]}
+                for i in create_needed.values()
+            ],
+            "update_needed": [
+                {
+                    "vuln_id": vid,
+                    "issue_number": number,
+                    "title": issue["title"],
+                    "diff": _body_diff(
+                        issue["body"], existing[vid].get("body", ""),
+                        local_label=f"local-{vid}", remote_label=f"remote-{vid}",
+                    ),
+                }
+                for vid, number, issue in update_needed
+            ],
+        }
+        print(json.dumps(plan, indent=2, ensure_ascii=False))
+        return 0
+    if format == "diff":
+        for vid in up_to_date:
+            print(f"[SYNC] OK     {vid}: up to date", file=sys.stderr)
+        for issue in create_needed.values():
+            vid = _extract_vuln_id(issue["title"]) or "?"
+            print(f"[SYNC] CREATE {vid}: {issue['title']}", file=sys.stderr)
+        for vid, number, issue in update_needed:
+            print(f"[SYNC] UPDATE {vid} (#{number}): {issue['title']}",
+                  file=sys.stderr)
+            print(f"--- {vid} diff (remote -> local) ---")
+            print(_body_diff(
+                issue["body"], existing[vid].get("body", ""),
+                local_label=f"local-{vid}", remote_label=f"remote-{vid}",
+            ))
+        return 0
+
+    # --- default: summary mode, then act ------------------------------
     created = updated = failed = 0
 
     for vid in up_to_date:
@@ -565,7 +627,11 @@ if __name__ == "__main__":
     parser.add_argument("--sync", action="store_true",
                         help="Sync: fetch existing issues, update any that differ from local ISSUES. "
                              "Safe to run repeatedly — idempotent.")
+    parser.add_argument("--format", choices=["summary", "diff", "json"],
+                        default="summary",
+                        help="Output format for --sync (default: summary). "
+                             "'diff' prints unified diffs; 'json' prints the plan as JSON.")
     args = parser.parse_args()
     if args.sync:
-        sys.exit(sync_issues(dry_run=args.dry_run))
+        sys.exit(sync_issues(dry_run=args.dry_run, format=args.format))
     sys.exit(file_issues(dry_run=args.dry_run, stop_on_error=args.stop_on_error))

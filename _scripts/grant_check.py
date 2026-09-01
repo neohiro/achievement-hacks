@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """grant_check.py — Audit which GitHub Achievements a given account actually has.
 
 GitHub does NOT expose achievement data via the GraphQL or REST API.
@@ -28,21 +27,22 @@ Usage:
 
 Default login: neohiro
 """
+from __future__ import annotations
+
 import argparse
 import json
 import re
 import subprocess
 import sys
+from contextlib import suppress
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
-
-try:
-    sys.stdout.reconfigure(encoding="utf-8")
-except (AttributeError, ValueError):
-    pass
 
 REPO_ROOT = Path(__file__).parent.parent
 SCRIPT_DIR = Path(__file__).parent
+
+# Ensure stdout can print emoji on Windows (default cp1252 cannot).
+with suppress(AttributeError, ValueError):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 # Map from GitHub's achievement asset filename to our slug.
 # GitHub stores badge images at github.githubassets.com/images/modules/profile/achievements/
@@ -131,21 +131,6 @@ def parse_achievements_from_html(html: str) -> dict[str, set[str]]:
         found.setdefault(slug, set()).add(tier)
 
     return found
-
-
-def _count_merged_prs(login: str, repos: list[str]) -> int:
-    total = 0
-    for repo in repos:
-        try:
-            data = _gh_run_json(["gh", "api", f"repos/{login}/{repo}/pulls",
-                                 "--state", "closed", "--paginate",
-                                 "--jq", '[.[] | select(.merged_at != null)] | length'])
-            if isinstance(data, int):
-                total += data
-        except RuntimeError as exc:
-            if args.verbose:
-                print(f"WARN: {exc}", file=sys.stderr)
-    return total
 
 
 def get_achievement_status(login: str, verbose: bool = False) -> dict:

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """list_achievements.py — Canonical inventory of all known GitHub Achievements.
 
 Reads _achievements/*/meta.yaml and prints a markdown table.
@@ -16,13 +15,12 @@ Usage:
 import argparse
 import json
 import sys
+from contextlib import suppress
 from pathlib import Path
 
 # Ensure stdout can print emoji on Windows (default cp1252 cannot).
-try:
+with suppress(AttributeError, ValueError):
     sys.stdout.reconfigure(encoding="utf-8")
-except (AttributeError, ValueError):
-    pass
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 REPO_ROOT = SCRIPT_DIR.parent
@@ -64,13 +62,10 @@ def collect_slug_dirs(base: Path):
 def slug_sort_key(path: Path) -> str:
     parts = path.parts
     prefix = 2 if any(p.startswith("_") for p in parts[:-1]) else 0
-    meta = {}
-    try:
+    with suppress(ValueError):
         meta = load_meta(path)
-    except ValueError:
-        pass
-    tiers = len(meta.get("tiers", []))
-    return f"{prefix}:{tiers:02d}:{path.name}"
+        return f"{prefix}:{len(meta.get('tiers', [])):02d}:{path.name}"
+    return f"{prefix}:00:{path.name}"
 
 
 def load_schema() -> dict:

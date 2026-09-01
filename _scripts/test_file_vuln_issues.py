@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Tests for file_vuln_issues.py — uses unittest so no external deps.
 
 Run:  python -m unittest _scripts/test_file_vuln_issues.py -v
@@ -62,7 +61,6 @@ class TestIssuesStructure(unittest.TestCase):
         self.assertEqual(len(titles), len(set(titles)))
 
     def test_unique_vuln_ids(self):
-        import re
         ids = [re.search(r"VULN-\d{3}", i["title"]).group() for i in fvi.ISSUES]
         self.assertEqual(sorted(ids), ["VULN-001", "VULN-002", "VULN-003",
                                        "VULN-004", "VULN-005", "VULN-006"])
@@ -221,8 +219,6 @@ class TestRetry(unittest.TestCase):
             subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="HTTP 429"),
             subprocess.CompletedProcess(args=[], returncode=0, stdout="https://x/i/1", stderr=""),
         ]
-        runner = MagicMock(side_effect=results)
-        # Patch _gh_run so we exercise the retry path, not the injected mock
         with unittest.mock.patch("file_vuln_issues._gh_run", side_effect=results), \
              unittest.mock.patch("file_vuln_issues.time.sleep") as mock_sleep:
             result = fvi._retry_gh_run(["gh", "issue", "create"])
@@ -264,6 +260,23 @@ class TestScrubSensitive(unittest.TestCase):
     def test_leaves_normal_text_alone(self):
         text = "gh: command not found"
         self.assertEqual(fvi._scrub_sensitive(text), text)
+
+
+# Characters to strip in slugify_heading (em-dash, en-dash, punctuation).
+# The en-dash is intentional test data for the slugifier.
+_SLUG_STRIP_TABLE = [
+    ("—", "-"),   # em-dash
+    ("\u2013", "-"),   # en-dash
+    ("—", "-"),   # left/right em-dash variants
+    (":", ""),
+    ("(", ""),
+    (")", ""),
+    ("/", ""),
+    ("&", ""),
+    ("'", ""),
+    (".", ""),
+    (",", ""),
+]
 
 
 class TestSlugifyHeading(unittest.TestCase):
@@ -339,19 +352,7 @@ class TestSecurityAnchors(unittest.TestCase):
         slug = heading.lower()
         slug = unicodedata.normalize("NFKD", slug)
         # Replace unicode punctuation that GitHub treats as word separators
-        for old, new in [
-            ("—", "-"),   # em-dash
-            ("–", "-"),   # en-dash
-            ("—", "-"),   # left/right em-dash variants
-            (":", ""),
-            ("(", ""),
-            (")", ""),
-            ("/", ""),
-            ("&", ""),
-            ("'", ""),
-            (".", ""),
-            (",", ""),
-        ]:
+        for old, new in _SLUG_STRIP_TABLE:
             slug = slug.replace(old, new)
         # Spaces → hyphens
         slug = re.sub(r"\s+", "-", slug)

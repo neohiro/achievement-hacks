@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """file_vuln_issues.py — File or sync GitHub Issues for achievement-hacking vulnerabilities.
 
 Usage:
@@ -12,8 +11,12 @@ Usage:
 Requires: gh CLI authenticated with repo scope.
 """
 import argparse
+import json
+import os
+import re
 import subprocess
 import sys
+import tempfile
 import time
 
 REPO = "neohiro/achievement-hacks"
@@ -384,7 +387,7 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
         try:
             result = runner(cmd)
         except FileNotFoundError:
-            print(f"ERR: 'gh' CLI not found — install it from https://cli.github.com", file=sys.stderr)
+            print("ERR: 'gh' CLI not found — install it from https://cli.github.com", file=sys.stderr)
             failure_count += 1
             if stop_on_error:
                 return 1
@@ -414,15 +417,12 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
 
 def _scrub_sensitive(text: str) -> str:
     """Remove likely GitHub token values from error strings before logging."""
-    import re
     text = re.sub(r"gh[pousr]_[A-Za-z0-9_]+", "ghp_***REDACTED***", text)
-    text = re.sub(r"github_pat_[A-Za-z0-9_]+", "github_pat_***REDACTED***", text)
-    return text
+    return re.sub(r"github_pat_[A-Za-z0-9_]+", "github_pat_***REDACTED***", text)
 
 
 def _extract_vuln_id(title: str) -> str | None:
     """Return the VULN-### prefix from an issue title, or None."""
-    import re
     m = re.search(r"\[(VULN-\d{3})\]", title)
     return m.group(1) if m else None
 
@@ -444,7 +444,6 @@ def _fetch_existing_issues(runner=None) -> dict[str, dict]:
                      "--limit", "100"])
     if result.returncode != 0:
         raise RuntimeError(f"gh issue list failed: {result.stderr.strip()}")
-    import json
     raw = result.stdout.strip()
     if not raw:
         return {}
@@ -471,8 +470,7 @@ def _body_matches(local_body: str, remote_body: str) -> bool:
     import difflib
     local_lines = [ln.rstrip() for ln in local_body.splitlines()]
     remote_lines = [ln.rstrip() for ln in remote_body.splitlines()]
-    diff = list(difflib.unified_diff(remote_lines, local_lines, lineterm=""))
-    return len(diff) == 0
+    return not list(difflib.unified_diff(remote_lines, local_lines, lineterm=""))
 
 
 def sync_issues(dry_run=False, runner=None):
@@ -536,7 +534,6 @@ def sync_issues(dry_run=False, runner=None):
     for vid, number, issue in update_needed:
         print(f"[SYNC] UPDATE {vid} (#{number}): {issue['title'][:60]} ...", file=sys.stderr)
         if not dry_run:
-            import tempfile
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".md", delete=False, encoding="utf-8"
             ) as f:
@@ -544,7 +541,6 @@ def sync_issues(dry_run=False, runner=None):
                 tmp = f.name
             result = runner(["gh", "issue", "edit", str(number),
                              "--repo", REPO, "--body-file", tmp])
-            import os
             os.unlink(tmp)
             if result.returncode == 0:
                 print(f"[SYNC] UPDATED: #{number}", file=sys.stderr)

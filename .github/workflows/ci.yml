@@ -21,10 +21,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install pyyaml jsonschema
-
-      - name: Install ruff
-        run: pip install ruff
+        run: pip install pyyaml jsonschema ruff
 
       - name: Run full validation
         run: python _scripts/neohiro_validate.py

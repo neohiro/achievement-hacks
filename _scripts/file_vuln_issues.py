@@ -596,14 +596,18 @@ def sync_issues(dry_run=False, format="summary", runner=None):
     for vid, number, issue in update_needed:
         print(f"[SYNC] UPDATE {vid} (#{number}): {issue['title'][:60]} ...", file=sys.stderr)
         if not dry_run:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".md", delete=False, encoding="utf-8"
-            ) as f:
-                f.write(issue["body"])
-                tmp = f.name
-            result = runner(["gh", "issue", "edit", str(number),
-                             "--repo", REPO, "--body-file", tmp])
-            os.unlink(tmp)
+            tmp = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".md", delete=False, encoding="utf-8"
+                ) as f:
+                    f.write(issue["body"])
+                    tmp = f.name
+                result = runner(["gh", "issue", "edit", str(number),
+                                 "--repo", REPO, "--body-file", tmp])
+            finally:
+                if tmp is not None:
+                    os.unlink(tmp)
             if result.returncode == 0:
                 print(f"[SYNC] UPDATED: #{number}", file=sys.stderr)
                 updated += 1

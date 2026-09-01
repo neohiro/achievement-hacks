@@ -64,13 +64,17 @@ def main():
         if old_body == new_body:
             print(f"Issue #{num}: no change needed (anchor may already be correct)")
         else:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".md", delete=False, encoding="utf-8"
-            ) as f:
-                f.write(new_body)
-                tmp = f.name
-            result = gh("issue", "edit", str(num), "--repo", REPO, "--body-file", tmp)
-            os.unlink(tmp)
+            tmp = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".md", delete=False, encoding="utf-8"
+                ) as f:
+                    f.write(new_body)
+                    tmp = f.name
+                result = gh("issue", "edit", str(num), "--repo", REPO, "--body-file", tmp)
+            finally:
+                if tmp is not None:
+                    os.unlink(tmp)
             if result is None:
                 print(f"Issue #{num}: edit failed")
             else:

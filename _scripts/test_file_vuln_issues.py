@@ -499,5 +499,93 @@ class TestSyncFormat(unittest.TestCase):
         self.assertEqual(diff, "")
 
 
+class TestUtilsScrub(unittest.TestCase):
+    """Direct tests for the shared _utils.scrub_sensitive — critical security helper."""
+
+    def setUp(self):
+        from _utils import scrub_sensitive
+        self.scrub = scrub_sensitive
+
+    def test_redacts_ghp_token(self):
+        out = self.scrub("Error: ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH is invalid")
+        self.assertNotIn("AAAABBBB", out)
+        self.assertIn("***REDACTED***", out)
+
+    def test_redacts_gho_oauth_token(self):
+        out = self.scrub("Bearer gho_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+        self.assertNotIn("gho_", out)
+        self.assertIn("***REDACTED***", out)
+
+    def test_redacts_ghs_server_to_server(self):
+        out = self.scrub("token=ghs_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
+        self.assertNotIn("ghs_", out)
+        self.assertIn("***REDACTED***", out)
+
+    def test_redacts_github_pat(self):
+        out = self.scrub("github_pat_11ABCDEFG0_xyz123xyz123xyz123xyz123xyz123")
+        self.assertNotIn("github_pat_", out)
+        self.assertIn("***REDACTED***", out)
+
+    def test_passes_through_normal_text(self):
+        text = "gh: command not found"
+        self.assertEqual(self.scrub(text), text)
+
+    def test_passes_through_paths_and_urls(self):
+        text = "https://github.com/neohiro/achievement-hacks/issues/1"
+        self.assertEqual(self.scrub(text), text)
+
+    def test_redacts_multiple_tokens_in_one_string(self):
+        out = self.scrub("ghp_AAA gho_BBB ghs_CCC github_pat_DDD")
+        for token in ("ghp_", "gho_", "ghs_", "github_pat_"):
+            self.assertNotIn(token, out)
+        self.assertEqual(out.count("***REDACTED***"), 4)
+
+
+class TestTempfileCleanup(unittest.TestCase):
+    """Verify tempfile is removed even when runner raises."""
+
+    def test_update_path_cleans_up_on_runner_exception(self):
+        """Verify that if runner() raises after tempfile is created, the file
+        is still removed (no temp file leak).
+
+        Also verifies that the exception propagates — it is NOT swallowed by
+        sync_issues, since the caller is responsible for error handling.
+        """
+        import os
+        import tempfile
+
+        import file_vuln_issues as fvi
+
+        captured_tmp: list[str] = []
+        orig_named = tempfile.NamedTemporaryFile
+
+        class _CapturingTempFile:
+            def __init__(self, *a, **kw):
+                self._delegate = orig_named(*a, **kw)
+                captured_tmp.append(self._delegate.name)
+            def __enter__(self):
+                return self._delegate.__enter__()
+            def __exit__(self, *a):
+                return self._delegate.__exit__(*a)
+            def write(self, data):
+                return self._delegate.write(data)
+
+        def failing_runner(cmd):
+            raise RuntimeError("simulated network failure after tempfile created")
+
+        def fake_fetch(runner=None):
+            return {"VULN-001": {"number": 1, "title": "[VULN-001] Test",
+                                  "body": "different body"}}
+
+        with unittest.mock.patch.object(tempfile, "NamedTemporaryFile", _CapturingTempFile):
+            with unittest.mock.patch.object(fvi, "_fetch_existing_issues", fake_fetch):
+                with self.assertRaises(RuntimeError):
+                    fvi.sync_issues(dry_run=False, runner=failing_runner)
+
+        self.assertEqual(len(captured_tmp), 1, "expected exactly one tempfile")
+        self.assertFalse(os.path.exists(captured_tmp[0]),
+                         "tempfile was NOT cleaned up — LEAK")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

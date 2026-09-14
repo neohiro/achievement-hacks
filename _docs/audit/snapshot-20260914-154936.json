@@ -1,0 +1,7 @@
+{
+  "login": "neohiro",
+  "parsed_achievements": {},
+  "activity_counts": {},
+  "tier_estimate": {},
+  "profile_error": "gh api users/neohiro failed: gh: To use GitHub CLI in a GitHub Actions workflow, set the GH_TOKEN environment variable. Example:\n  env:\n    GH_TOKEN: ${{ github.token }}"
+}

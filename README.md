@@ -131,3 +131,5 @@ See [`SECURITY.md`](./SECURITY.md) for the full analysis and proposed defenses.
 ## License
 
 MIT. Use these recipes. Improve them. Send PRs. Star the repo (we're working on ⭐ Starstruck Bronze ourselves).
+
+[![Visitors](https://api.visitorbadge.io/api/visitors?path=github.com/neohiro/achievement-hacks&label=Visitors&countColor=%23263759)](https://visitorbadge.io/status?path=github.com/neohiro/achievement-hacks)

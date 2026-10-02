@@ -85,14 +85,41 @@ def _run_unit() -> dict:
         [sys.executable, str(SCRIPTS_DIR / "test_file_vuln_issues.py")],
         capture_output=True, encoding="utf-8", errors="replace", timeout=DEFAULT_TIMEOUT,
     )
-    # Parse "Ran 41 tests in 0.3s\nOK" or "FAILED (errors=1)"
-    lines = [ln for ln in proc.stderr.splitlines() if ln.startswith(("Ran ", "OK", "FAILED"))]
-    summary = lines[-1] if lines else (lines[0] if lines else "no output")
+    # Parse "Ran 59 tests in 0.3s\nOK" or "FAILED (failures=3)".
+    # unittest emits these interleaved with progress dots, so filter to just
+    # those three prefixes; the verdict ("OK" / "FAILED ...") is the one that
+    # reflects the run, not necessarily the last matching line.
+    verdict = [ln for ln in proc.stderr.splitlines()
+               if ln.startswith(("OK", "FAILED"))]
+    ran = [ln for ln in proc.stderr.splitlines() if ln.startswith("Ran ")]
+    if verdict:
+        summary = verdict[-1]
+    elif ran:
+        summary = ran[-1]
+    else:
+        summary = "no output"
+
+    # Surface which tests failed. The summary alone ("FAILED (failures=3)") does
+    # not say which, so a red gate gave nothing to act on. unittest prints each
+    # failing test as a "FAIL: <id>" banner followed by a traceback; collect the
+    # ids and attach them to the result.
+    failed_ids: list[str] = []
+    for line in proc.stderr.splitlines():
+        if line.startswith(("FAIL: ", "ERROR: ")):
+            failed_ids.append(line.split(": ", 1)[1].strip())
+
+    findings = [f"{len(failed_ids)} failing test(s): " + ", ".join(failed_ids)] if failed_ids else []
+    if proc.returncode != 0 and not failed_ids:
+        # Non-zero exit without a parseable id (crash, timeout, collection error):
+        # keep the tail of stderr so the cause is visible.
+        findings = ["no test ids parsed; stderr tail:"] + proc.stderr.splitlines()[-8:]
+
     return {
         "check": "unit",
         "status": "ok" if proc.returncode == 0 else "fail",
         "returncode": proc.returncode,
         "summary": summary,
+        "findings": findings,
     }
 
 

@@ -4,11 +4,14 @@
 Run:  python -m unittest _scripts/test_file_vuln_issues.py -v
 or:   python _scripts/test_file_vuln_issues.py
 """
+import io
+import json
 import os
 import re
 import subprocess
 import sys
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import MagicMock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -437,36 +440,69 @@ class TestCli(unittest.TestCase):
 class TestSyncFormat(unittest.TestCase):
     """Tests for the --sync --format {summary,diff,json} modes."""
 
-    def test_sync_format_summary_exits_zero(self):
-        proc = subprocess.run(
-            [sys.executable, os.path.join(HERE, "file_vuln_issues.py"),
-             "--sync", "--dry-run", "--format", "summary"],
-            capture_output=True, encoding="utf-8", errors="replace", timeout=30,
-        )
-        self.assertEqual(proc.returncode, 0)
-        self.assertIn("[SYNC]", proc.stderr)
-        self.assertIn("Found 6 existing vulnerability issues.", proc.stderr)
+    # These three shelled out to file_vuln_issues.py with no injection, so they
+    # made live `gh issue list` calls against the real repository. In a unit
+    # suite that is wrong twice over: the result depends on live repo state, and
+    # CI's GITHUB_TOKEN is rate limited and scoped differently from a
+    # developer's. That is why these were the three failures on every run while
+    # the other 56 passed.
+    #
+    # sync_issues() takes an injectable runner, so drive it directly with a fake
+    # that reports every VULN id as present and up to date. Deterministic and
+    # offline.
+
+    @staticmethod
+    def _all_up_to_date_runner(writes):
+        """Fake runner: `gh issue list` returns one matching issue per VULN id."""
+        def runner(cmd):
+            if "issue" in cmd and "list" in cmd:
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=0,
+                    stdout=json.dumps([
+                        {"number": idx + 1,
+                         "title": f"[{_vid}] placeholder",
+                         "body": issue["body"],
+                         "labels": [{"name": "vulnerability"}]}
+                        for idx, issue in enumerate(fvi.ISSUES)
+                        for _vid in [fvi._extract_vuln_id(issue["title"])]
+                    ]),
+                    stderr="",
+                )
+            writes.append(cmd)
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+        return runner
+
+    def test_sync_format_summary_reports_no_writes_in_dry_run(self):
+        writes = []
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            rc = fvi.sync_issues(dry_run=True, format="summary",
+                                 runner=self._all_up_to_date_runner(writes))
+        self.assertEqual(rc, 0)
+        self.assertEqual(writes, [], "dry run must not issue any write commands")
+        self.assertIn("[SYNC]", buf.getvalue())
 
     def test_sync_format_diff_exits_zero(self):
-        proc = subprocess.run(
-            [sys.executable, os.path.join(HERE, "file_vuln_issues.py"),
-             "--sync", "--dry-run", "--format", "diff"],
-            capture_output=True, encoding="utf-8", errors="replace", timeout=30,
-        )
-        self.assertEqual(proc.returncode, 0)
+        writes = []
+        with redirect_stderr(io.StringIO()):
+            rc = fvi.sync_issues(dry_run=True, format="diff",
+                                 runner=self._all_up_to_date_runner(writes))
+        self.assertEqual(rc, 0)
+        self.assertEqual(writes, [], "dry run must not issue any write commands")
 
-    def test_sync_format_json_exits_zero(self):
-        proc = subprocess.run(
-            [sys.executable, os.path.join(HERE, "file_vuln_issues.py"),
-             "--sync", "--dry-run", "--format", "json"],
-            capture_output=True, encoding="utf-8", errors="replace", timeout=30,
-        )
-        self.assertEqual(proc.returncode, 0)
-        import json
-        data = json.loads(proc.stdout)
-        self.assertIn("up_to_date", data)
-        self.assertIn("create_needed", data)
-        self.assertIn("update_needed", data)
+    def test_sync_format_json_reports_empty_work_lists(self):
+        writes = []
+        buf = io.StringIO()
+        with redirect_stderr(io.StringIO()), redirect_stdout(buf):
+            rc = fvi.sync_issues(dry_run=True, format="json",
+                                 runner=self._all_up_to_date_runner(writes))
+        self.assertEqual(rc, 0)
+        data = json.loads(buf.getvalue())
+        for key in ("up_to_date", "create_needed", "update_needed"):
+            self.assertIn(key, data)
+        self.assertEqual(data["create_needed"], [])
+        self.assertEqual(data["update_needed"], [])
+        self.assertEqual(writes, [], "dry run must not issue any write commands")
 
     def test_sync_format_unknown_exits_nonzero(self):
         proc = subprocess.run(

@@ -10,6 +10,12 @@ jobs:
   validate:
     name: Validate achievement catalog
     runs-on: ubuntu-latest
+    # The sync check runs `file_vuln_issues.py --sync --dry-run`, which calls
+    # `gh issue list`. Without a token gh is unauthenticated and the call fails,
+    # so the check could never pass. `contents: read` is all it needs: the sync is
+    # a dry run and issues no writes.
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +35,9 @@ jobs:
         run: pip install pyyaml jsonschema ruff
 
       - name: Run full validation
+        env:
+          # Required: the sync check shells out to `gh`, which needs a token.
+          GH_TOKEN: ${{ github.token }}
         run: python _scripts/neohiro_validate.py
 
       - name: Print achievement table

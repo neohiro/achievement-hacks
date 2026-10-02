@@ -13,6 +13,12 @@ on:
       - "_docs/meta.schema.json"
       - "_scripts/**"
 
+# Two overlapping runs would force-push over each other's snapshot on the shared
+# automation branch, and both could try to open a PR for it. Serialise instead.
+concurrency:
+  group: achievement-audit
+  cancel-in-progress: false
+
 jobs:
   audit:
     name: Audit neohiro achievements

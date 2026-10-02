@@ -106,11 +106,42 @@ jobs:
             | sort -rn | tail -n +13 | awk '{print $2}' | xargs -r rm -f
           echo "Kept $(find _docs/audit -maxdepth 1 -name 'snapshot-*.json' -type f | wc -l) snapshots (max 12)"
 
-      - name: Commit new snapshot
+      # main is protected, so a direct `git push` cannot land this snapshot.
+      # Publish to a dedicated branch and let a PR carry it for review, reusing
+      # the open PR if a previous run left one behind.
+      - name: Open or update snapshot pull request
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: automation/achievement-audit
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add _docs/audit/
-          git diff --staged --quiet || git commit -m "chore: commit achievement audit snapshot $(date -u +%Y-%m-%d)"
-          git push
+          if git diff --staged --quiet; then
+            echo "No snapshot changes; nothing to do."
+            exit 0
+          fi
+
+          date_stamp=$(date -u +%Y-%m-%d)
+          git commit -m "chore: achievement audit snapshot ${date_stamp}"
+
+          # Plain --force: checkout is depth-1, so there is no remote-tracking
+          # ref for $BRANCH and --force-with-lease would fail with stale info.
+          # Safe because the branch is bot-owned and carries no other work.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+
+          number=$(gh pr list --head "$BRANCH" --state open --json number \
+            --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            echo "Updated existing PR #${number}"
+            gh pr comment "$number" --body "Snapshot refreshed by run ${GITHUB_RUN_ID}."
+          else
+            gh pr create \
+              --head "$BRANCH" \
+              --base "${GITHUB_REF_NAME}" \
+              --title "chore: achievement audit snapshot" \
+              --body "Automated snapshot refresh from \`.github/workflows/audit.yml\`. Last 12 snapshots are retained; older ones are pruned by the workflow."
+          fi

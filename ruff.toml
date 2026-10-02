@@ -1,0 +1,27 @@
+[lint]
+select = [
+    "F",    # pyflakes: undefined names, unused imports/variables, empty f-strings
+    "E9",   # pycodestyle syntax errors (E9xx only; not the line-length rules)
+    "B",    # flake8-bugbear: mutable defaults, assert side effects
+    "ARG",  # flake8-unused-arguments: dead parameters hide refactor mistakes
+    "PLE",  # pylint errors: syntax/logic errors only
+]
+ignore = [
+    # BLE001 lives under "B" via flake8-blind-except in some ruff versions; the
+    # GitHub client catches broadly on purpose and re-raises with context.
+    "BLE001",
+    # B904: raise-without-from-inside-except. The scripts already include the
+    # original message in the new exception's text, so chaining adds no
+    # information for a CLI tool whose output is read by a human.
+    "B904",
+]
+
+[lint.per-file-ignores]
+# Test doubles legitimately take unused fixtures, assert on purpose, and mirror
+# the signature of the function they stand in for (hence ARG005 on the lambda
+# stubs, which must accept `cmd` to match the real callback).
+"_scripts/test_*.py" = ["S101", "ARG001", "ARG002", "ARG005"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

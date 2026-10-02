@@ -18,7 +18,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
+          # No cache: pip's cache keys off a dependency file (requirements.txt /
+          # pyproject.toml), and this repo has none -- it installs a fixed
+          # dependency set inline below. With cache: pip set, every run aborted
+          # here with "No file ... matched to [**/requirements.txt or
+          # **/pyproject.toml]", so the validation this job exists to perform
+          # never executed.
 
       - name: Install dependencies
         run: pip install pyyaml jsonschema ruff

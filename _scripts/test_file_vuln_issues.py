@@ -452,25 +452,33 @@ class TestSyncFormat(unittest.TestCase):
     # offline.
 
     @staticmethod
-    def _all_up_to_date_runner(writes):
-        """Fake runner: `gh issue list` returns one matching issue per VULN id."""
+    def _fake_issue_list(writes, body_transform=None):
+        """Fake runner: `gh issue list` returns one matching issue per VULN id.
+
+        `body_transform(vid, body)` optionally rewrites a returned body, which is
+        how the drifted-body case is expressed.
+        """
         def runner(cmd):
             if "issue" in cmd and "list" in cmd:
+                rows = []
+                for idx, issue in enumerate(fvi.ISSUES):
+                    vid = fvi._extract_vuln_id(issue["title"])
+                    body = issue["body"]
+                    if body_transform is not None:
+                        body = body_transform(vid, body)
+                    rows.append({"number": idx + 1,
+                                 "title": f"[{vid}] placeholder",
+                                 "body": body,
+                                 "labels": [{"name": "vulnerability"}]})
                 return subprocess.CompletedProcess(
-                    args=cmd, returncode=0,
-                    stdout=json.dumps([
-                        {"number": idx + 1,
-                         "title": f"[{_vid}] placeholder",
-                         "body": issue["body"],
-                         "labels": [{"name": "vulnerability"}]}
-                        for idx, issue in enumerate(fvi.ISSUES)
-                        for _vid in [fvi._extract_vuln_id(issue["title"])]
-                    ]),
-                    stderr="",
-                )
+                    args=cmd, returncode=0, stdout=json.dumps(rows), stderr="")
             writes.append(cmd)
             return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
         return runner
+
+    @classmethod
+    def _all_up_to_date_runner(cls, writes):
+        return cls._fake_issue_list(writes)
 
     def test_sync_format_summary_reports_no_writes_in_dry_run(self):
         writes = []
@@ -504,6 +512,111 @@ class TestSyncFormat(unittest.TestCase):
         self.assertEqual(data["update_needed"], [])
         self.assertEqual(writes, [], "dry run must not issue any write commands")
 
+    # --- Drifted bodies: the case sync exists to detect ---
+    #
+    # The up-to-date cases above only prove the happy path. These prove the
+    # interesting one: a remote body that no longer matches the local source must
+    # land in update_needed (and be reported), and a dry run must still not write.
+
+    def test_sync_reports_drifted_body_as_update_needed(self):
+        writes = []
+        drifted_id = fvi._extract_vuln_id(fvi.ISSUES[0]["title"])
+
+        def drift(vid, body):
+            if vid == drifted_id:
+                return body + "\n\n<!-- edited on the remote -->"
+            return body
+
+        buf = io.StringIO()
+        with redirect_stderr(io.StringIO()), redirect_stdout(buf):
+            rc = fvi.sync_issues(dry_run=True, format="json",
+                                 runner=self._fake_issue_list(writes, body_transform=drift))
+
+        self.assertEqual(rc, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(len(data["update_needed"]), 1,
+                         f"expected exactly one drifted issue, got {data['update_needed']}")
+        self.assertEqual(len(data["create_needed"]), 0)
+        self.assertNotIn(drifted_id, data["up_to_date"])
+        self.assertEqual(writes, [], "dry run must not issue any write commands")
+
+    def test_sync_dry_run_does_not_write_a_drifted_issue(self):
+        """A drift must still produce no write when running as a dry run.
+
+        Guards the `if not dry_run:` guard on the UPDATE branch specifically. The
+        json-format tests assert on the plan and never enter the write loop, so
+        removing that guard would otherwise go unnoticed.
+        """
+        writes = []
+        drifted_id = fvi._extract_vuln_id(fvi.ISSUES[0]["title"])
+
+        def drift(vid, body):
+            if vid == drifted_id:
+                return body + "\n\n<!-- edited on the remote -->"
+            return body
+
+        err = io.StringIO()
+        with redirect_stderr(err):
+            rc = fvi.sync_issues(dry_run=True, format="summary",
+                                 runner=self._fake_issue_list(writes, body_transform=drift))
+
+        self.assertEqual(rc, 0)
+        out = err.getvalue()
+        # The drift must be reported...
+        self.assertIn(f"UPDATE {drifted_id}", out)
+        # ...and no write command may be issued.
+        self.assertEqual(writes, [], "dry run must not issue any write commands")
+        self.assertFalse(any("issue" in c and "edit" in c for c in writes))
+
+    def test_sync_diff_format_reports_the_drift(self):
+        writes = []
+        drifted_id = fvi._extract_vuln_id(fvi.ISSUES[0]["title"])
+
+        def drift(vid, body):
+            if vid == drifted_id:
+                return body + "\n\n<!-- edited on the remote -->"
+            return body
+
+        # Progress goes to stderr; the diff itself is written to stdout.
+        err = io.StringIO()
+        out_buf = io.StringIO()
+        with redirect_stderr(err), redirect_stdout(out_buf):
+            rc = fvi.sync_issues(dry_run=True, format="diff",
+                                 runner=self._fake_issue_list(writes, body_transform=drift))
+
+        self.assertEqual(rc, 0)
+        self.assertIn(f"UPDATE {drifted_id}", err.getvalue())
+        diff_out = out_buf.getvalue()
+        self.assertIn("edited on the remote", diff_out,
+                      "diff must show the changed line, not just announce a change")
+        self.assertEqual(writes, [], "dry run must not issue any write commands")
+
+    def test_sync_ignores_trailing_whitespace_only_change(self):
+        """Trailing whitespace on a line is stripped, so it is not drift.
+
+        _body_diff strips trailing whitespace per line to absorb CRLF/LF and
+        reformatting differences. Appending a whole extra line would be real
+        drift, so this pads an existing line instead.
+        """
+        writes = []
+        drifted_id = fvi._extract_vuln_id(fvi.ISSUES[0]["title"])
+
+        def drift(vid, body):
+            if vid != drifted_id:
+                return body
+            lines = body.rstrip("\n").split("\n")
+            lines[-1] = lines[-1] + "    "
+            return "\n".join(lines) + "\n"
+
+        buf = io.StringIO()
+        with redirect_stderr(io.StringIO()), redirect_stdout(buf):
+            rc = fvi.sync_issues(dry_run=True, format="json",
+                                 runner=self._fake_issue_list(writes, body_transform=drift))
+
+        self.assertEqual(rc, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["update_needed"], [],
+                         "a trailing-whitespace-only change must not be treated as drift")
     def test_sync_format_unknown_exits_nonzero(self):
         proc = subprocess.run(
             [sys.executable, os.path.join(HERE, "file_vuln_issues.py"),

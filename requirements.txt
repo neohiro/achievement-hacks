@@ -1,0 +1,10 @@
+# Runtime dependencies for the read-only catalog tooling.
+#
+# _scripts/grant_check.py is deliberately stdlib-only: it does a single
+# unauthenticated GET and regex parsing, and keeping it dependency-free means it
+# can be vendored or run in a bare CI container.
+#
+# _scripts/list_achievements.py requires PyYAML because meta.yaml nests blocks
+# (tiers:, links:, verified:) and a partial parser would misread scalars such as
+# `earnable: true` without failing loudly.
+PyYAML>=6.0

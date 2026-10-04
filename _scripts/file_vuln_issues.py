@@ -1,16 +1,30 @@
 #!/usr/bin/env python3
-"""file_vuln_issues.py — File GitHub Issues for achievement-hacking vulnerabilities.
+"""file_vuln_issues.py — File or sync GitHub Issues for achievement-hacking vulnerabilities.
 
 Usage:
-    python file_vuln_issues.py              # file all issues
-    python file_vuln_issues.py --dry-run     # print what would be filed
-    python file_vuln_issues.py --stop-on-error  # exit on first failure
+    python file_vuln_issues.py                    # file all issues (creates new)
+    python file_vuln_issues.py --dry-run          # print what would be filed/updated
+    python file_vuln_issues.py --stop-on-error    # exit on first filing failure
+    python file_vuln_issues.py --sync             # idempotent sync (update or create)
+    python file_vuln_issues.py --sync --dry-run   # show what sync would do
+    python file_vuln_issues.py --sync --format diff   # show unified diffs of drifted issues
+    python file_vuln_issues.py --sync --format json   # show full plan as JSON
 
 Requires: gh CLI authenticated with repo scope.
 """
 import argparse
+import json
+import os
+import re
 import subprocess
 import sys
+import tempfile
+import time
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).parent.resolve()
+sys.path.insert(0, str(SCRIPT_DIR))
+from _utils import scrub_sensitive  # noqa: E402
 
 REPO = "neohiro/achievement-hacks"
 
@@ -40,7 +54,7 @@ api.close_issue(repo, issue.number)  # < 1 second later
 
 Reference implementation: [neohiro/achievement-hacks/_achievements/quickdraw/earn.sh](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/quickdraw/earn.sh)
 
-Full security analysis: see [SECURITY.md#vuln-001-quickdraw--sub-5-minute-issuepr-close-loop](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-001-quickdraw--sub-5-minute-issuepr-close-loop)
+Full security analysis: see [SECURITY.md#vuln-001-quickdraw-sub-5-minute-issuepr-close-loop](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-001-quickdraw-sub-5-minute-issuepr-close-loop)
 
 ## Impact
 
@@ -100,7 +114,7 @@ Reference: [neohiro/achievement-hacks/_achievements/yolo/README.md](https://gith
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-002-yolo--review-free-merge-via-admin-override)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-002-yolo-review-free-merge-via-admin-override)
 - [neohiro/achievement-hacks README](https://github.com/neohiro/achievement-hacks)
 
 ## Disclosure
@@ -147,7 +161,7 @@ Reference: [neohiro/achievement-hacks/_achievements/heart-on-your-sleeve/README.
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-003-heart-on-your-sleeve--mass-reaction-automation)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-003-heart-on-your-sleeve-mass-reaction-automation)
 
 ## Disclosure
 
@@ -194,7 +208,7 @@ Reference: [neohiro/achievement-hacks/_achievements/pair-extraordinaire/README.m
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-004-pair-extraordinaire--co-author-trailer-abuse)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-004-pair-extraordinaire-co-author-trailer-abuse)
 - [GitHub co-author documentation](https://docs.github.com/en/pull-requests/committing-changes-to-your-project/creating-and-editing-commits/creating-a-commit-with-multiple-authors)
 
 ## Disclosure
@@ -240,7 +254,7 @@ Reference: [neohiro/achievement-hacks/_achievements/pull-shark/README.md](https:
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-005-pull-shark--automated-pr-farming)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-005-pull-shark-automated-pr-farming)
 
 ## Disclosure
 
@@ -371,9 +385,7 @@ our automation ethics note.
 
 ## Reference
 
-- [Full analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-007-open-sourcerer--third-party-pr-spam-as-an-achievement-path)
-- [Automation ethics](https://github.com/neohiro/achievement-hacks/blob/main/_docs/AUTOMATION_ETHICS.md)
-- [GitHub Acceptable Use Policies](https://docs.github.com/en/site-policy/acceptable-use-policies)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-006-galaxy-brain-discussion-self-answer-abuse)
 
 ## Disclosure
 
@@ -404,20 +416,51 @@ def build_command(issue):
 def _gh_run(cmd):
     """Default runner: wraps subprocess.run with the correct flags for gh.
 
-    ``errors="replace"`` matters on Windows, where gh frequently emits output in
-    the console codepage rather than UTF-8; without it a single stray byte
-    raises UnicodeDecodeError and is reported as a filing failure that never
-    happened. ``timeout`` stops a hung or waiting-for-auth gh from blocking
-    forever, which for an unattended run means an indefinite hang rather than a
-    clean failure.
+    Uses errors="replace" so a stray non-UTF8 byte in gh stderr never crashes
+    the whole run. gh rarely emits non-UTF8, but it can happen on Windows
+    when locale is not UTF-8.
     """
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=GH_TIMEOUT,
-    )
+    return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace")
+
+
+# Rate-limit handling: gh returns HTTP 429 as a non-zero exit code with a
+# Retry-After hint in stderr. We retry with exponential backoff up to 3 times.
+_MAX_RETRIES = 3
+_RETRY_BACKOFF_BASE = 2  # seconds — 2, 4, 8
+
+
+def _is_rate_limited(stderr: str) -> bool:
+    """Heuristic: gh surfaces rate limits as a non-zero exit with a 429-ish message."""
+    return "429" in stderr or "rate limit" in stderr.lower()
+
+
+def _retry_gh_run(cmd, max_retries=_MAX_RETRIES):
+    """Run gh with exponential-backoff retry on rate-limit (429) responses.
+
+    Returns the CompletedProcess from the final attempt. Raises the last
+    exception if every attempt fails.
+    """
+    last_exc = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            result = _gh_run(cmd)
+        except FileNotFoundError:
+            raise  # gh not installed — no point retrying
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                time.sleep(_RETRY_BACKOFF_BASE ** attempt)
+                continue
+            raise
+        if result.returncode == 0:
+            return result
+        if _is_rate_limited(result.stderr) and attempt < max_retries:
+            time.sleep(_RETRY_BACKOFF_BASE ** attempt)
+            continue
+        return result  # non-rate-limit failure — return as-is
+    if last_exc:
+        raise last_exc
+    return result  # pragma: no cover — defensive fallback
 
 
 def file_issues(dry_run=False, stop_on_error=False, runner=None):
@@ -430,9 +473,15 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
     none were, which is the one result this script must never produce.
 
     runner: optional callable(cmd) -> CompletedProcess. Defaults to _gh_run.
+          A runner that yields non-zero returncodes on rate-limit will be retried
+          internally by _retry_gh_run when the default runner is used. When an
+          injected mock runner is used (for testing), no retry is applied.
     """
     if runner is None:
-        runner = _gh_run
+        runner = _retry_gh_run
+
+    success_count = 0
+    failure_count = 0
 
     failures = 0
     filed = 0
@@ -448,44 +497,248 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
             result = runner(cmd)
         except FileNotFoundError:
             print("ERR: 'gh' CLI not found — install it from https://cli.github.com", file=sys.stderr)
-            failures += 1
-            if stop_on_error:
-                return 1
-            continue
-        except subprocess.TimeoutExpired:
-            print(f"ERR: 'gh' timed out after {GH_TIMEOUT}s", file=sys.stderr)
-            failures += 1
+            failure_count += 1
             if stop_on_error:
                 return 1
             continue
         except Exception as exc:
             print(f"ERR: runner raised {type(exc).__name__}: {exc}", file=sys.stderr)
-            failures += 1
+            failure_count += 1
             if stop_on_error:
                 return 1
             continue
+
         if result.returncode == 0:
             filed += 1
             print(f"OK: {result.stdout.strip()}", file=sys.stderr)
+            success_count += 1
         else:
-            failures += 1
-            print(f"ERR: {result.stderr.strip()}", file=sys.stderr)
+            # Scrub potential token leaks from stderr before logging
+            safe_err = scrub_sensitive(result.stderr.strip())
+            print(f"ERR: {safe_err}", file=sys.stderr)
+            failure_count += 1
             if stop_on_error:
                 print(f"Stopping on error at issue {i}.", file=sys.stderr)
                 return 1
 
-    if not dry_run:
-        print(
-            f"Filed {filed}/{len(ISSUES)} issue(s), {failures} failure(s).",
-            file=sys.stderr,
-        )
-    return 1 if failures else 0
+    print(f"Summary: {success_count} succeeded, {failure_count} failed out of {len(ISSUES)}", file=sys.stderr)
+    return 1 if failure_count else 0
+
+
+def _extract_vuln_id(title: str) -> str | None:
+    """Return the VULN-### prefix from an issue title, or None."""
+    m = re.search(r"\[(VULN-\d{3})\]", title)
+    return m.group(1) if m else None
+
+
+def _fetch_existing_issues(runner=None) -> dict[str, dict]:
+    """Fetch all open/closed issues labeled 'vulnerability' for this repo.
+
+    Returns a dict keyed by VULN-### id -> {number, title, body, state}.
+    Uses _retry_gh_run so rate-limits are retried.
+    """
+    if runner is None:
+        runner = _retry_gh_run
+
+    result = runner(["gh", "issue", "list",
+                     "--repo", REPO,
+                     "--json", "number,title,body,state",
+                     "--label", "vulnerability",
+                     "--state", "all",
+                     "--limit", "100"])
+    if result.returncode != 0:
+        # Scrub tokens before surfacing stderr into an exception message
+        raise RuntimeError(f"gh issue list failed: {scrub_sensitive(result.stderr.strip())}")
+    raw = result.stdout.strip()
+    if not raw:
+        return {}
+    try:
+        issues = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"gh issue list returned invalid JSON: {exc}\n{raw[:200]}")
+
+    out = {}
+    for issue in issues:
+        vid = _extract_vuln_id(issue.get("title", ""))
+        if vid:
+            out[vid] = issue
+    return out
+
+
+def _body_diff(local_body: str, remote_body: str, local_label: str = "local",
+               remote_label: str = "remote") -> str:
+    """Return a unified diff between remote and local issue bodies.
+
+    Trailing whitespace is stripped to avoid spurious diffs from CRLF/LF
+    conversion. Returns an empty string if bodies are equivalent.
+    """
+    import difflib
+    local_lines = [ln.rstrip() for ln in local_body.splitlines(keepends=False)]
+    remote_lines = [ln.rstrip() for ln in remote_body.splitlines(keepends=False)]
+    diff = list(difflib.unified_diff(
+        remote_lines, local_lines,
+        fromfile=remote_label, tofile=local_label,
+        lineterm="",
+    ))
+    return "\n".join(diff)
+
+
+def _body_matches(local_body: str, remote_body: str) -> bool:
+    """Return True if local_body and remote_body are equivalent for sync purposes.
+
+    Compares after stripping trailing whitespace. Whitespace differences in
+    multi-line bodies are ignored. This handles CRLF/LF differences between
+    platforms and formatting variation in how the body was written.
+    """
+    return not _body_diff(local_body, remote_body, local_label="L", remote_label="R")
+
+
+def sync_issues(dry_run=False, format="summary", runner=None):
+    """Fetch existing VULN-### issues and update any whose body differs from ISSUES.
+
+    Idempotent: safe to run repeatedly. Issues are matched by their [VULN-###]
+    title prefix. Only issues labeled 'vulnerability' are considered.
+
+    format:
+      - "summary" (default): one-line status per issue
+      - "diff": print unified diff for every drifted issue
+      - "json": print a single JSON object with the full plan
+
+    Returns exit code: 0 = all up to date (or all dry-run changes applied),
+                      1 = at least one real update failed.
+    """
+    if runner is None:
+        runner = _retry_gh_run
+
+    print(f"[SYNC] Fetching existing issues from {REPO} ...", file=sys.stderr)
+    try:
+        existing = _fetch_existing_issues(runner=runner)
+    except RuntimeError as exc:
+        print(f"ERR: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"[SYNC] Found {len(existing)} existing vulnerability issues.", file=sys.stderr)
+
+    create_needed = {i: issue for i, issue in enumerate(ISSUES)
+                     if _extract_vuln_id(issue["title"]) not in existing}
+    update_needed = []
+    up_to_date = []
+
+    for issue in ISSUES:
+        vid = _extract_vuln_id(issue["title"])
+        if vid and vid in existing:
+            remote = existing[vid]
+            if _body_matches(issue["body"], remote.get("body", "")):
+                up_to_date.append(vid)
+            else:
+                update_needed.append((vid, remote["number"], issue))
+
+    # --- emit plan ----------------------------------------------------
+    if format == "json":
+        plan = {
+            "up_to_date": up_to_date,
+            "create_needed": [
+                {"vuln_id": _extract_vuln_id(i["title"]) or "?", "title": i["title"]}
+                for i in create_needed.values()
+            ],
+            "update_needed": [
+                {
+                    "vuln_id": vid,
+                    "issue_number": number,
+                    "title": issue["title"],
+                    "diff": _body_diff(
+                        issue["body"], existing[vid].get("body", ""),
+                        local_label=f"local-{vid}", remote_label=f"remote-{vid}",
+                    ),
+                }
+                for vid, number, issue in update_needed
+            ],
+        }
+        print(json.dumps(plan, indent=2, ensure_ascii=False))
+        return 0
+    if format == "diff":
+        for vid in up_to_date:
+            print(f"[SYNC] OK     {vid}: up to date", file=sys.stderr)
+        for issue in create_needed.values():
+            vid = _extract_vuln_id(issue["title"]) or "?"
+            print(f"[SYNC] CREATE {vid}: {issue['title']}", file=sys.stderr)
+        for vid, number, issue in update_needed:
+            print(f"[SYNC] UPDATE {vid} (#{number}): {issue['title']}",
+                  file=sys.stderr)
+            print(f"--- {vid} diff (remote -> local) ---")
+            print(_body_diff(
+                issue["body"], existing[vid].get("body", ""),
+                local_label=f"local-{vid}", remote_label=f"remote-{vid}",
+            ))
+        return 0
+
+    # --- default: summary mode, then act ------------------------------
+    created = updated = failed = 0
+
+    for vid in up_to_date:
+        print(f"[SYNC] OK     {vid}: up to date", file=sys.stderr)
+
+    for issue in create_needed.values():
+        vid = _extract_vuln_id(issue["title"]) or "?"
+        print(f"[SYNC] CREATE {vid}: {issue['title'][:60]} ...", file=sys.stderr)
+        if not dry_run:
+            cmd = build_command(issue)
+            try:
+                result = runner(cmd)
+            except Exception as exc:
+                print(f"[SYNC] ERR    {vid}: runner raised {type(exc).__name__}: {exc}", file=sys.stderr)
+                failed += 1
+                continue
+            if result.returncode == 0:
+                print(f"[SYNC] CREATED: {result.stdout.strip()}", file=sys.stderr)
+                created += 1
+            else:
+                print(f"[SYNC] ERR    {vid}: {scrub_sensitive(result.stderr.strip())}", file=sys.stderr)
+                failed += 1
+
+    for vid, number, issue in update_needed:
+        print(f"[SYNC] UPDATE {vid} (#{number}): {issue['title'][:60]} ...", file=sys.stderr)
+        if not dry_run:
+            tmp = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".md", delete=False, encoding="utf-8"
+                ) as f:
+                    f.write(issue["body"])
+                    tmp = f.name
+                result = runner(["gh", "issue", "edit", str(number),
+                                 "--repo", REPO, "--body-file", tmp])
+            finally:
+                if tmp is not None:
+                    os.unlink(tmp)
+            if result.returncode == 0:
+                print(f"[SYNC] UPDATED: #{number}", file=sys.stderr)
+                updated += 1
+            else:
+                print(f"[SYNC] ERR    {vid}: {scrub_sensitive(result.stderr.strip())}", file=sys.stderr)
+                failed += 1
+
+    print(f"[SYNC] Done. Up-to-date={len(up_to_date)}  Created={created}  "
+          f"Updated={updated}  Failed={failed}", file=sys.stderr)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="File GitHub Issues for achievement-hacking vulnerabilities.")
-    parser.add_argument("--dry-run", action="store_true", help="Print what would be filed without filing")
+    parser = argparse.ArgumentParser(
+        description="File or sync GitHub Issues for achievement-hacking vulnerabilities."
+    )
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Print what would be filed/updated without doing it")
     parser.add_argument("--stop-on-error", action="store_true",
                         help="Exit on first filing failure instead of continuing")
+    parser.add_argument("--sync", action="store_true",
+                        help="Sync: fetch existing issues, update any that differ from local ISSUES. "
+                             "Safe to run repeatedly — idempotent.")
+    parser.add_argument("--format", choices=["summary", "diff", "json"],
+                        default="summary",
+                        help="Output format for --sync (default: summary). "
+                             "'diff' prints unified diffs; 'json' prints the plan as JSON.")
     args = parser.parse_args()
+    if args.sync:
+        sys.exit(sync_issues(dry_run=args.dry_run, format=args.format))
     sys.exit(file_issues(dry_run=args.dry_run, stop_on_error=args.stop_on_error))

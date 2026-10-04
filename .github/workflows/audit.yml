@@ -1,0 +1,153 @@
+name: Achievement Audit
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"   # 09:00 UTC every Monday
+  workflow_dispatch:               # allow manual trigger
+
+  # Also run after every commit to main so the snapshot stays current
+  push:
+    branches: [main]
+    paths:
+      - "_achievements/**"
+      - "_docs/meta.schema.json"
+      - "_scripts/**"
+
+# Two overlapping runs would force-push over each other's snapshot on the shared
+# automation branch, and both could try to open a PR for it. Serialise instead.
+concurrency:
+  group: achievement-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit neohiro achievements
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml jsonschema
+
+      - name: Run achievement audit
+        id: audit
+        run: |
+          mkdir -p _docs/audit
+          python _scripts/grant_check.py --json neohiro > "_docs/audit/snapshot-$(date +%Y%m%d-%H%M%S).json"
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+          echo "snapshot=$(ls -t _docs/audit/snapshot-*.json | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Check achievement diff against previous snapshot
+        id: diff_check
+        run: |
+          set +e
+          # Use readarray to safely handle empty glob (bash 3 compatible)
+          readarray -t SNAPSHOTS < <(ls -t _docs/audit/snapshot-*.json 2>/dev/null)
+          CURRENT="${SNAPSHOTS[0]}"
+          PREV="${SNAPSHOTS[1]}"
+          if [ -z "$PREV" ]; then
+            echo "status=first_snapshot" >> $GITHUB_OUTPUT
+            echo "No previous snapshot to diff against." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          python -c "
+          import json, sys
+          curr = json.load(open('$CURRENT'))
+          prev = json.load(open('$PREV'))
+          changes = []
+          for key in set(list(curr) + list(prev)):
+            c = curr.get(key)
+            p = prev.get(key)
+            if c != p:
+              changes.append((key, p, c))
+          if changes:
+            print('CHANGES_DETECTED')
+            for key, old, new in changes:
+              print(f'  {key}: {old!r} -> {new!r}')
+            sys.exit(1)
+          else:
+            print('NO_CHANGES')
+          "
+          status=$?
+          echo "status=$( [ $status -eq 0 ] && echo 'no_changes' || echo 'changes_detected' )" >> $GITHUB_OUTPUT
+          if [ $status -eq 1 ]; then
+            echo "## Achievement Audit: Changes Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            python -c "
+            import json
+            curr = json.load(open('$CURRENT'))
+            prev = json.load(open('$PREV'))
+            for key in sorted(set(list(curr) + list(prev))):
+              c = curr.get(key)
+              p = prev.get(key)
+              if c != p:
+                print(f'- **{key}**: {p!r} -> {c!r}')
+            " >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Snapshot: \`$CURRENT\`" >> $GITHUB_STEP_SUMMARY
+            echo "Previous: \`$PREV\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Achievement Audit: No Changes" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Achievement status for \`neohiro\` is unchanged from the last run." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Prune old snapshots (keep last 12)
+        run: |
+          set +e
+          # Use find to avoid 'ls' failing when the glob has zero matches under set -e
+          find _docs/audit -maxdepth 1 -name 'snapshot-*.json' -type f -printf '%T@ %p\n' \
+            | sort -rn | tail -n +13 | awk '{print $2}' | xargs -r rm -f
+          echo "Kept $(find _docs/audit -maxdepth 1 -name 'snapshot-*.json' -type f | wc -l) snapshots (max 12)"
+
+      # main is protected, so a direct `git push` cannot land this snapshot.
+      # Publish to a dedicated branch and let a PR carry it for review, reusing
+      # the open PR if a previous run left one behind.
+      - name: Open or update snapshot pull request
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: automation/achievement-audit
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add _docs/audit/
+          if git diff --staged --quiet; then
+            echo "No snapshot changes; nothing to do."
+            exit 0
+          fi
+
+          date_stamp=$(date -u +%Y-%m-%d)
+          git commit -m "chore: achievement audit snapshot ${date_stamp}"
+
+          # Plain --force: checkout is depth-1, so there is no remote-tracking
+          # ref for $BRANCH and --force-with-lease would fail with stale info.
+          # Safe because the branch is bot-owned and carries no other work.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+
+          number=$(gh pr list --head "$BRANCH" --state open --json number \
+            --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            echo "Updated existing PR #${number}"
+            gh pr comment "$number" --body "Snapshot refreshed by run ${GITHUB_RUN_ID}."
+          else
+            gh pr create \
+              --head "$BRANCH" \
+              --base "${GITHUB_REF_NAME}" \
+              --title "chore: achievement audit snapshot" \
+              --body "Automated snapshot refresh from \`.github/workflows/audit.yml\`. Last 12 snapshots are retained; older ones are pruned by the workflow."
+          fi

@@ -4,8 +4,15 @@ emoji: "🏴"
 tiers:
   - name: Default
     threshold: 1
-earned_on: []
-status: Not yet
+earned_on:
+  - neohiro
+status: Earned
+verified:
+  account: neohiro
+  tier: Default
+  verified_on: "2026-10-03"
+  method: "profile sidebar badge asset 'yolo-default-*'"
+  source: "https://github.com/neohiro?tab=achievements"
 earnable: true
 deprecated_reason: ""
 how_earned: "Merged a pull request without a review."

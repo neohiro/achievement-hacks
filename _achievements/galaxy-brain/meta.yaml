@@ -11,17 +11,20 @@ tiers:
   - name: Gold
     threshold: 32
 earned_on: []
-status: Not yet
+status: In progress
 earnable: true
 deprecated_reason: ""
-how_earned: "Had an answer accepted in a GitHub Discussion (Q&A category)."
+how_earned: "Had an answer accepted in a GitHub Discussion (Q&A category), accepted by a different account than the answer author."
 automatable: false
-automation_difficulty: Medium
+automation_difficulty: Hard
 links:
   official_doc: "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/personalizing-your-profile#displaying-badges-on-your-profile"
   community_repo: "https://github.com/drknzz/GitHub-Achievements"
 notes:
   - "Only Q&A category answers that are MARKED ACCEPTED count"
   - "Open-ended discussion comments do NOT count"
-  - "You can answer your own question (it must be marked accepted by an admin or yourself)"
-  - "Some accounts self-answer accepted by bot"
+  - "The acceptance must be made by a DIFFERENT account than the answer author. Self-accepting your own answer does NOT count, even as repo admin. VERIFIED 2026-10-03."
+  - "Verified negatively: neohiro self-asked, self-answered and self-accepted two Q&A threads in neohiro/achievement-hacks (#7, #19) and the badge was not awarded"
+  - "RETRACTED: an earlier version of this file claimed 'You can answer your own question (it must be marked accepted by an admin or yourself)'. That is false."
+  - "Tier thresholds (2/8/16/32) are community-reported, not published by GitHub"
+  - "Achievements are disabled in orgs/community discussions, so that repo cannot be used"

@@ -1,6 +1,6 @@
 # ⭐ Starstruck
 
-> **Status: `Not yet`** — neohiro/ExploitProtection has 85 stars, past Default (16) but the badge isn't appearing yet. Verification pending.
+> **Status: `Earned`** — Default tier, verified 2026-10-03 against the live profile.
 
 ## What it measures
 
@@ -17,12 +17,12 @@ A **waving hand** emoji (👋) in your skin-tone preference, layered over a star
 
 ## Tiers
 
-| Tier | Stars required | Badge |
-|---|---|---|
-| Default | 16 | 👋⭐ |
-| Bronze | 128 | 👋⭐ (bronze) |
-| Silver | 512 | 👋⭐ (silver) |
-| Gold | 4096 | 👋⭐ (gold) |
+| Tier | Stars required | Badge | Evidence |
+|---|---|---|---|
+| Default | 16 | 👋⭐ | Verified - badge held |
+| Bronze | 128 | 👋⭐ (bronze) | community-reported |
+| Silver | 512 | 👋⭐ (silver) | community-reported |
+| Gold | 4096 | 👋⭐ (gold) | community-reported |
 
 ## How it works
 
@@ -70,19 +70,35 @@ gh api user --jq '.login' | xargs -I{} gh api users/{}/repos --paginate \
 5. Reply to **every issue** opened in the first month. Stars follow engagement.
 6. Don't delete and re-push the repo — that resets stars to 0 in some old accounts' histories.
 
+## neohiro status
+
+**`Earned` — Default, verified 2026-10-03.**
+
+> Earlier revisions of this file said "85 stars, past Default (16) but the badge
+> isn't appearing yet. Verification pending." and speculated that the profile
+> toggle might be off. That speculation was unnecessary: the badge was live the
+> whole time. Checking the profile directly settles it in one request —
+> see [`_docs/VERIFICATION.md`](../../_docs/VERIFICATION.md).
+
+- `ExploitProtection`: **86 stars** — clears Default (16) ✓, short of Bronze (128)
+- `dnscrypt-proxy-gui`: 29 stars
+- Only the single highest-starred repo counts, so `ExploitProtection` is the one
+  that sets the tier.
+- **Bronze (128) is 42 stars away** — the closest remaining target.
+- Realistic Bronze ETA: 6–12 months of organic growth.
+
+Check current counts at any time:
+
+```bash
+python _scripts/grant_check.py --account neohiro
+```
+
 ## Difficulty assessment
 
 **Medium** — Trivially mechanical at low counts (16 stars can come from 16 friends, GitHub won't tell you not to). Realistically, getting to Bronze (128) requires one of:
 - A genuinely useful tool
 - A viral moment
 - Years of consistent small wins
-
-## neohiro status
-
-- `ExploitProtection` has **85 stars** — past Default (16) ✓
-- Should already be showing the **Default** badge. If not, check `Settings → Public profile → Display achievements on my profile`.
-- Bronze (128) is **43 stars away** — closest target.
-- Realistic Bronze ETA: 6–12 months of organic growth.
 
 ## Community
 

@@ -1,6 +1,6 @@
 # 🏴 YOLO
 
-> **Status: `Not yet`** — branch protection rules on neohiro repos currently require reviews, blocking solo merges.
+> **Status: `Earned`** — Default tier, verified 2026-10-03 against the live profile.
 
 ## What it measures
 
@@ -14,9 +14,9 @@ A bold YOLO badge with a free-spirited motif. The profile animation is dramatic 
 
 ## Tiers
 
-| Tier | Required |
-|---|---|
-| Default | 1 (one-time) |
+| Tier | Required | Evidence |
+|---|---|---|
+| Default | 1 (one-time) | Verified - badge held |
 
 ## How it works
 
@@ -79,9 +79,23 @@ echo "✓ Push complete. If no branch protection requires reviews, badge should 
 
 ## neohiro status
 
-- No neohiro repo is currently configured to allow solo merges on `main`
-- The simplest earn target would be a fresh public repo with no branch protection
+**`Earned` — verified 2026-10-03.** The live profile renders the `yolo-default`
+badge asset.
+
+> Earlier revisions of this file claimed the badge was blocked because "no
+> neohiro repo is currently configured to allow solo merges on `main`". That
+> claim was wrong on its own terms — it contradicted the existence of a merged,
+> unreviewed PR somewhere in the account's history, and the badge had in fact
+> already been awarded. Treat the "no repo allows solo merges" assertion as
+> unverified; branch protection is a per-repo, per-branch setting and the
+> account has many repos.
+
+This is the one badge in the catalog where the *earned* state is consistent with
+the documented harm: YOLO rewards merging unreviewed code, so the badge is
+evidence that the guardrail was bypassed at least once. See
+[`SECURITY.md` VULN-002](../../SECURITY.md) for why that is worth reporting.
 
 ## Difficulty assessment
 
-**Trivial** — Mechanically a single PR merge. The only friction is the (very reasonable) branch protection rules on real projects.
+**Trivial** — Mechanically a single PR merge. The only friction is the (very
+reasonable) branch protection rules on real projects.

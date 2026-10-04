@@ -14,12 +14,12 @@ Two overlapping user silhouettes or code brackets. The aesthetic is collaborativ
 
 ## Tiers
 
-| Tier | Co-authored commits on merged PRs |
-|---|---|
-| Default | 1 |
-| Bronze | 10 |
-| Silver | 24 |
-| Gold | 48 |
+| Tier | Co-authored commits on merged PRs | Evidence |
+|---|---|---|
+| Default | 1 | community-reported |
+| Bronze | 10 | community-reported |
+| Silver | 24 | community-reported |
+| Gold | 48 | community-reported |
 
 ## How it works
 
@@ -80,6 +80,22 @@ Co-authored-by: Their Name <their@email.com>
 ## neohiro status
 
 Not yet started. First co-authored merged PR needed.
+
+Re-check at any time with `python _scripts/grant_check.py`.
+
+## ⚠️ Ethics note
+
+This badge requires **a second human being**. That is a built-in limiter, and it
+is worth respecting rather than routing around: the documented automation
+([`SECURITY.md` VULN-004](../../SECURITY.md)) creates 50 empty commits carrying a
+`Co-authored-by:` trailer to a second account, inflating the counter 50× in one
+merge. A trailer asserts that a person contributed; forging it in bulk is a lie
+in the commit metadata of someone else's repository, and it is the kind of thing
+that makes maintainers distrust co-author attribution generally.
+
+Co-authoring a commit you actually worked on needs no automation.
+
+See [`_docs/AUTOMATION_ETHICS.md`](../../_docs/AUTOMATION_ETHICS.md).
 
 ## Difficulty assessment
 

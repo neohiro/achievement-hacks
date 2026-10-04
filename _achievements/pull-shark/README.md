@@ -1,6 +1,6 @@
 # 🦈 Pull Shark
 
-> **Status: `Not yet`** — neohiro has 30+ merged PRs in flagship repos but total is likely below the Default threshold of 2.
+> **Status: `Earned`** — Silver (128 merged PRs), verified 2026-10-03 against the live profile.
 
 ## What it measures
 
@@ -14,12 +14,12 @@ A **shark fin** slicing through blue/purple water. The profile animation shows t
 
 ## Tiers
 
-| Tier | Merged PRs required | Badge |
-|---|---|---|
-| Default | 2 | 🦈 |
-| Bronze | 16 | 🦈 (bronze tint) |
-| Silver | 128 | 🦈 (silver) |
-| Gold | 1024 | 🦈 (gold) |
+| Tier | Merged PRs required | Badge | Evidence |
+|---|---|---|---|
+| Default | 2 | 🦈 | Verified - badge held |
+| Bronze | 16 | 🦈 (bronze tint) | Verified - badge held |
+| Silver | 128 | 🦈 (silver) | Verified - badge held |
+| Gold | 1024 | 🦈 (gold) | community-reported |
 
 ## How it works
 
@@ -57,14 +57,31 @@ echo "Total merged PRs for $ACCOUNT: $TOTAL / 2 (Default) / 16 / 128 / 1024"
 
 ## neohiro status
 
+**`Earned` — Silver, verified 2026-10-03.**
+
+The live profile renders the `pull-shark-silver` badge asset with a `x3` repeat
+count, so the badge is held at Silver and has been awarded three times over.
+Silver requires 128 merged PRs.
+
+> Earlier revisions of this file claimed "Total known: 30+ — likely past Default
+> (2) ... Verification pending" while the catalog still said `Not yet`. That was
+> stale: the badge was already live. Re-verify with
+> `python _scripts/grant_check.py`.
+
+Breakdown of where the merges come from:
+
 - `ExploitProtection`: 4 merged
 - `dnscrypt-proxy-gui`: 15 merged
 - `linux`: 4 merged
 - `ubuntu`: 3 merged
 - `windows`: 3 merged
 - Other repos: partial
-- **Total known: 30+** — likely past Default (2) and past Bronze (16). Verification pending.
+- **Verified live tier: Silver (128 PRs)** — well past Bronze (16).
+
+Gold (1024 merged PRs) is the next tier and is not a realistic target.
 
 ## Difficulty assessment
 
-**Easy** — Just keep merging PRs. Any active org will hit Default (2) within a few weeks of real work.
+**Easy** — Just keep merging PRs. Any active maintainer will hit Default (2)
+within a few weeks of real work. Silver is roughly a year of steady maintenance
+across several repos.

@@ -18,6 +18,8 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
+import yaml
+
 # Ensure stdout can print emoji on Windows (default cp1252 cannot).
 with suppress(AttributeError, ValueError):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -33,7 +35,6 @@ def load_meta(slug_dir: Path) -> dict:
     if not meta_path.exists():
         raise ValueError(f"{meta_path} exists but has no meta.yaml")
     try:
-        import yaml
         with open(meta_path, encoding="utf-8") as f:
             return yaml.safe_load(f)
     except yaml.YAMLError as exc:

@@ -65,9 +65,54 @@ def parse_target(raw: str) -> tuple[str, bool]:
     return text, malformed
 
 
+def strip_fenced_blocks(text: str) -> str:
+    """Blank out fenced code blocks, keeping every line in place.
+
+    ``headings()`` already skips fences so a ``#`` comment inside a shell snippet
+    is not read as a heading. The link scanners did not, and that turned into a
+    real failure rather than a theoretical one.
+
+    ``_achievements/starstruck/README.md`` shows an *example* of the cross-link a
+    contributor is supposed to add, inside a ```bash fence::
+
+        # see also [neohiro/your-best-repo](...)"
+
+    The ``(...)`` is prose standing in for "your repo URL", not a link. The
+    scanner read it as one and resolved it against the filesystem, where it does
+    not exist, so CI failed on a placeholder that was never meant to resolve.
+
+    The failure was also platform-dependent, which is why it passed review and
+    then failed in CI rather than the reverse. On Linux
+    ``_achievements/starstruck/...`` is simply absent and the check reports
+    BROKEN. On Windows a path component cannot end in a dot - the filesystem
+    strips trailing dots - so ``os.path.exists`` answers True for a path that
+    cannot actually be opened, and the check passes. A linter whose verdict
+    flips on the host OS is not one to trust on either platform.
+
+    Fenced lines are replaced with empty strings rather than deleted so a
+    reported line number still points at the right line, and the fence markers
+    themselves are kept so an unbalanced fence toggles exactly as it did before.
+    """
+    out = []
+    fence: str | None = None
+    for line in text.splitlines():
+        match = FENCE_RE.match(line)
+        if fence is None:
+            out.append(line)
+            if match:
+                fence = match.group(1)
+            continue
+        if match and match.group(1) == fence:
+            fence = None
+            out.append(line)
+        else:
+            out.append("")
+    return "\n".join(out)
+
+
 def iter_relative_links(text: str):
     """Yield (target, malformed) for links that are neither external nor anchors."""
-    for raw in LINK_RE.findall(text):
+    for raw in LINK_RE.findall(strip_fenced_blocks(text)):
         target, malformed = parse_target(raw)
         target = target.split("#", 1)[0]
         if not target:
@@ -86,7 +131,7 @@ def iter_fragments(text: str):
     a heading that does not exist and still be reported as fine. GitHub resolves
     these silently to the top of the page, so the breakage is easy to miss.
     """
-    for raw in LINK_RE.findall(text):
+    for raw in LINK_RE.findall(strip_fenced_blocks(text)):
         target, _malformed = parse_target(raw)
         path_part, _, frag = target.partition("#")
         if not frag:

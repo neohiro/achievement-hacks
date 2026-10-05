@@ -29,9 +29,12 @@ achievement-hacks/
 ├── README.md                          ← you are here
 ├── SECURITY.md                        ← vulnerability disclosure (VULN-001 to VULN-006)
 ├── _docs/
-│   ├── ACHIEVEMENT_INDEX.md           ← generated catalog view (single source of truth = meta.yaml)
+│   ├── ACHIEVEMENT_INDEX.md           ← catalog view (source of truth = meta.yaml)
 │   ├── ACHIEVEMENT_FORMAT.md          ← schema for adding new achievements
-│   └── STATUS_LEGEND.md               ← meaning of every status flag
+│   ├── AUTOMATION_ETHICS.md           ← what this repo will and will not automate
+│   ├── HOW-TO-EARN.md                 ← contributor onboarding
+│   ├── STATUS_LEGEND.md               ← meaning of every status flag
+│   └── VERIFICATION.md                ← how each status was proven
 ├── _achievements/
 │   ├── <slug>/
 │   │   ├── README.md                  ← what it is, how to earn it, automation recipe
@@ -41,13 +44,25 @@ achievement-hacks/
 │   └── _highlights/                  ← account-tier badges
 ├── _scripts/
 │   ├── list_achievements.py           ← cross-platform inventory helper
-│   ├── file_vuln_issues.py           ← files the 6 VULN-### security issues
+│   ├── grant_check.py                ← meta.yaml vs. the live GitHub profile
+│   ├── file_vuln_issues.py           ← files the VULN-### security issues
+│   ├── check_coauthor.py             ← scans merged PRs for Co-authored-by
+│   ├── find_contributions.py         ← suggests what to contribute next
+│   ├── neohiro_validate.py           ← repo-wide validation
+│   ├── submit_contribution.py        ← opens a contribution PR
+│   ├── update_issue_bodies.py        ← syncs issue bodies from meta.yaml
+│   ├── _utils.py                     ← shared helpers
 │   └── test_file_vuln_issues.py      ← unit tests for the issue filer
+├── tests/
+│   ├── check_links.py                ← no dead links or heading anchors
+│   ├── check_workflows.py            ← CI config parses and names real scripts
+│   └── test_scripts.py               ← the suite for everything above
 └── .github/
     ├── ISSUE_TEMPLATE/
     │   └── new_achievement.md        ← request a new achievement be added
     └── workflows/
-        └── audit.yml                  ← daily achievement audit via GitHub Actions
+        ├── audit.yml                  ← daily achievement audit via GitHub Actions
+        └── catalog-drift.yml          ← weekly drift check across the catalog
 ```
 
 ### Running the checks
@@ -131,14 +146,31 @@ GitHub ships new achievements irregularly. When they do:
 1. Add `_achievements/<slug>/` (kebab-case, lowercase) with a `meta.yaml`
    matching [`_docs/ACHIEVEMENT_FORMAT.md`](./_docs/ACHIEVEMENT_FORMAT.md) and
    a `README.md` with all 11 required sections.
-2. Run `python _scripts/list_achievements.py --write` to regenerate the tables
-   above and in [`_docs/ACHIEVEMENT_INDEX.md`](./_docs/ACHIEVEMENT_INDEX.md).
-3. Run `python _scripts/list_achievements.py --check` and
-   `python _scripts/grant_check.py` to prove the catalog matches reality.
+2. Run `python _scripts/list_achievements.py --check` and
+   `python _scripts/grant_check.py neohiro` to prove the catalog matches reality.
+3. Update the catalog table above and in
+   [`_docs/ACHIEVEMENT_INDEX.md`](./_docs/ACHIEVEMENT_INDEX.md) by hand, adding
+   your row. See below for why there is no generator.
 4. Open a PR.
 
-Both catalog tables are generated; do not hand-edit them. CI fails if they drift
-from `meta.yaml`. Before opening the PR, read
+**The catalog table is maintained by hand, and that is deliberate.** Both the
+table here and the one in [`_docs/ACHIEVEMENT_INDEX.md`](./_docs/ACHIEVEMENT_INDEX.md)
+carry a `<!-- BEGIN:ACHIEVEMENT_* -->` marker naming `list_achievements.py` as
+their generator. That is inaccurate and worth correcting rather than preserving:
+`list_achievements.py` prints a table to stdout and has no write mode, so there
+is nothing to run.
+
+A generator was not written because the columns are not all derivable from
+`meta.yaml`. `Difficulty` and `Easiest path` have no counterpart there —
+`automation_difficulty` and `how_earned` are prose of a different shape — and
+the rows carry per-achievement status detail (`**In progress** (Q&A #7 created)`)
+that belongs to the person tracking the work, not to the data file. A generator
+would either lose those columns or move them into `meta.yaml`, which is a
+design decision that belongs with the catalog's owner rather than in a fix to a
+failing check.
+
+What CI does check is that `meta.yaml` parses and (with `--validate-schema`)
+conforms, and that `grant_check.py` agrees with the live profile. Before opening the PR, read
 [`_docs/AUTOMATION_ETHICS.md`](./_docs/AUTOMATION_ETHICS.md) — a PR that adds a
 badge-farming script will be rejected with an explanation.
 

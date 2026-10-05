@@ -46,5 +46,5 @@ how each value is checked against the live profile, and
 [`grant_check.py`](../_scripts/grant_check.py) for the command:
 
 ```bash
-python _scripts/grant_check.py --account neohiro   # exit 2 on any disagreement
+python _scripts/grant_check.py neohiro   # exit 2 on any disagreement
 ```

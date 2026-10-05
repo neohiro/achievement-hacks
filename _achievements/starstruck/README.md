@@ -90,7 +90,7 @@ gh api user --jq '.login' | xargs -I{} gh api users/{}/repos --paginate \
 Check current counts at any time:
 
 ```bash
-python _scripts/grant_check.py --account neohiro
+python _scripts/grant_check.py neohiro
 ```
 
 ## Difficulty assessment

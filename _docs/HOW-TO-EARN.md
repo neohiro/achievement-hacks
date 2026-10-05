@@ -7,7 +7,7 @@ step that no script can do.
 Verified against the live `neohiro` profile on 2026-10-03. Re-check with:
 
 ```bash
-python _scripts/grant_check.py --account neohiro
+python _scripts/grant_check.py neohiro
 ```
 
 ## Where the account stands

@@ -55,7 +55,7 @@ assignees: ""
 
 - [ ] `_achievements/<slug>/meta.yaml` added, following `_docs/ACHIEVEMENT_FORMAT.md`
 - [ ] `_achievements/<slug>/README.md` added, with all 11 required sections
-- [ ] `python _scripts/list_achievements.py --write` run to regenerate the tables
+- [ ] catalog tables updated by hand (`README.md` and `_docs/ACHIEVEMENT_INDEX.md`)
 - [ ] `python _scripts/list_achievements.py --check` passes
-- [ ] `python _scripts/grant_check.py` shows no drift
+- [ ] `python _scripts/grant_check.py neohiro` shows no drift
 - [ ] I have read `_docs/AUTOMATION_ETHICS.md` and this adds no badge-farming automation

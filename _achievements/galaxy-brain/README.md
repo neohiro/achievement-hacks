@@ -118,7 +118,7 @@ another repository.
 Reproduce the check:
 
 ```bash
-python _scripts/grant_check.py --account neohiro
+python _scripts/grant_check.py neohiro
 ```
 
 ## neohiro status

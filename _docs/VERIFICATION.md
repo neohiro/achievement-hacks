@@ -26,7 +26,7 @@ account X hold badge Y". The community reverse-engineered the answer, and
 [`grant_check.py`](../_scripts/grant_check.py) uses it:
 
 ```bash
-python _scripts/grant_check.py --account neohiro
+python _scripts/grant_check.py neohiro
 ```
 
 It performs one unauthenticated `GET https://github.com/<login>`, reads the

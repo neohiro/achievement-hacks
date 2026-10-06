@@ -14,9 +14,9 @@ A heart with a dollar/gift symbol. Pink/red tones. The profile animation shows a
 
 ## Tiers
 
-| Tier | Required |
-|---|---|
-| Default | 1 (one-time) |
+| Tier | Required | Evidence |
+|---|---|---|
+| Default | 1 (one-time) | community-reported |
 
 ## How it works
 

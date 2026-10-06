@@ -1,0 +1,22 @@
+# Runtime dependencies for the read-only catalog tooling.
+#
+# _scripts/grant_check.py is deliberately stdlib-only: it does a single
+# unauthenticated GET and regex parsing, and keeping it dependency-free means it
+# can be vendored or run in a bare CI container.
+#
+# _scripts/list_achievements.py requires PyYAML because meta.yaml nests blocks
+# (tiers:, links:, verified:) and a partial parser would misread scalars such as
+# `earnable: true` without failing loudly.
+PyYAML>=6.0
+
+# Only for `--validate-schema` and tests/test_schema_rules.py. Everything else
+# in this repository runs without it, so it is a separate line rather than a
+# hard requirement: `grant_check.py` in particular is kept stdlib-only so it can
+# run in a bare container.
+jsonschema>=4.0
+
+# Pinned exactly, on purpose. A new ruff release can change which rules apply,
+# so an unpinned linter turns a green build red with nothing in the diff but a
+# version number. The pin is repeated in every workflow that needs it only by
+# virtue of being here.
+ruff==0.16.6

@@ -12,12 +12,12 @@ Open-source code symbol (brackets `< >`) with a globe and a seedling. Green tone
 
 ## Tiers
 
-| Tier | Required |
-|---|---|
-| Default | 1 |
-| Bronze | Unknown |
-| Silver | Unknown |
-| Gold | Unknown |
+| Tier | Required | Evidence |
+|---|---|---|
+| Default | 1 | community-reported |
+| Bronze | Unknown | Unpublished |
+| Silver | Unknown | Unpublished |
+| Gold | Unknown | Unpublished |
 
 GitHub has not published tier thresholds. Some accounts hit Gold by contributing tiny typo/dependency fixes to hundreds of popular repos.
 
@@ -66,6 +66,23 @@ gh search issues 'is:open is:issue label:"good first issue" repo:python/cpython'
 - Not yet started.
 - Good targets: any project the org already uses (tailscale, age, structlog, github actions ecosystem, etc.)
 - Realistic target: contribute to 1 popular repo per quarter
+
+Re-check at any time with `python _scripts/grant_check.py`.
+
+## ⚠️ Ethics note
+
+This is the only achievement whose earn condition **inherently requires acting on
+a third party's account**, which makes it the easiest to abuse and the most
+expensive to get wrong. One real contribution is ordinary open-source
+participation and entirely fine. Machine-generated trivial PRs aimed at other
+maintainers' repositories are spam, and they cost strangers real moderation
+time.
+
+It is also the subject of [`SECURITY.md` VULN-007](../../SECURITY.md): the badge
+can be earned by contributions that GitHub's spam policy would penalise, so an
+account can hold Open Sourcerer while being banned from opening pull requests.
+
+See [`_docs/AUTOMATION_ETHICS.md`](../../_docs/AUTOMATION_ETHICS.md).
 
 ## Difficulty assessment
 

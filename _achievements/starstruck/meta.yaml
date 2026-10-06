@@ -10,8 +10,15 @@ tiers:
     threshold: 512
   - name: Gold
     threshold: 4096
-earned_on: []
-status: Not yet
+earned_on:
+  - neohiro
+status: Earned
+verified:
+  account: neohiro
+  tier: Default
+  verified_on: "2026-10-03"
+  method: "profile sidebar badge asset 'starstruck-default-*'; 86 stars on neohiro/ExploitProtection clears the Default threshold of 16"
+  source: "https://github.com/neohiro?tab=achievements"
 earnable: true
 deprecated_reason: ""
 how_earned: "Create a repository that reaches a given star count. Only your single highest-starred repo counts."

@@ -53,6 +53,16 @@ def _run_ruff() -> dict:
             line = line.rstrip()
             if line and "All checks passed!" not in line:
                 findings.append(line)
+
+    # A non-zero exit with nothing on stdout is not "zero issues". That is what
+    # ruff does when it cannot start at all - most often because it is not
+    # installed - and the reason is on stderr. Reporting it as a clean lint is
+    # how a missing dependency becomes a red gate that looks like a code
+    # problem: it happened here, and "0 ruff issues" was the only clue.
+    if proc.returncode != 0 and not findings:
+        detail = (proc.stderr or proc.stdout).strip().splitlines()
+        findings = [detail[-1]] if detail else ["ruff exited non-zero with no output"]
+
     return {
         "check": "ruff",
         "status": "ok" if proc.returncode == 0 else "fail",
@@ -69,13 +79,20 @@ def _run_schema() -> dict:
          "--validate-schema", "--check"],
         capture_output=True, encoding="utf-8", errors="replace", timeout=DEFAULT_TIMEOUT,
     )
-    ok = proc.returncode == 0 and "OK" in proc.stderr
+    # Both streams, not just stderr. The summary moved to stdout when --check
+    # gained the sync comparison, and this was reading stderr only - so a passing
+    # schema check reported as a failure while the tool it was driving printed
+    # "OK" and exited 0. Stream-coupled checks of another script are the failure
+    # mode here, so this looks at whatever it said.
+    said = f"{proc.stdout}\n{proc.stderr}"
+    ok = proc.returncode == 0 and "OK" in said
+    tail = said.strip().splitlines()[-1] if said.strip() else ""
     return {
         "check": "schema",
         "status": "ok" if ok else "fail",
         "returncode": proc.returncode,
-        "stderr_tail": proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else "",
-        "summary": proc.stderr.strip().splitlines()[-1] if ok else "schema validation failed",
+        "stderr_tail": tail,
+        "summary": tail if ok else "schema validation failed",
     }
 
 

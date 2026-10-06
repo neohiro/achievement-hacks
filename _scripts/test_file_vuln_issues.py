@@ -47,8 +47,8 @@ class TestRepoConstant(unittest.TestCase):
 
 
 class TestIssuesStructure(unittest.TestCase):
-    def test_six_issues(self):
-        self.assertEqual(len(fvi.ISSUES), 6)
+    def test_seven_issues(self):
+        self.assertEqual(len(fvi.ISSUES), 7)
 
     def test_each_issue_has_required_fields(self):
         for issue in fvi.ISSUES:
@@ -66,7 +66,8 @@ class TestIssuesStructure(unittest.TestCase):
     def test_unique_vuln_ids(self):
         ids = [re.search(r"VULN-\d{3}", i["title"]).group() for i in fvi.ISSUES]
         self.assertEqual(sorted(ids), ["VULN-001", "VULN-002", "VULN-003",
-                                       "VULN-004", "VULN-005", "VULN-006"])
+                                       "VULN-004", "VULN-005", "VULN-006",
+                                       "VULN-007"])
 
     def test_required_labels_present(self):
         for issue in fvi.ISSUES:
@@ -148,12 +149,34 @@ class TestStopOnError(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(runner.call_count, 1, "must stop on first error")
 
-    def test_continues_when_stop_on_error_false(self):
+    def test_continues_but_reports_failure_when_stop_on_error_false(self):
+        """Regression: this used to assert rc == 0 with every issue failing.
+
+        Reporting success after filing nothing is the one outcome this script
+        must never produce. stop_on_error governs early abort only; it must never
+        change the reported outcome.
+        """
         runner = MagicMock(side_effect=lambda cmd: _err(1))
         rc = fvi.file_issues(stop_on_error=False, runner=runner)
         self.assertEqual(runner.call_count, len(fvi.ISSUES),
                          "must process all issues even on error")
         self.assertEqual(rc, 1, "returns 1 when any issue fails (even with stop_on_error=False)")
+
+    def test_partial_failure_reports_failure(self):
+        seen = []
+
+        def runner(cmd):
+            seen.append(cmd)
+            return _ok(len(seen)) if len(seen) <= 2 else _err(len(seen))
+
+        rc = fvi.file_issues(stop_on_error=False, runner=runner)
+        self.assertEqual(rc, 1, "5 of 7 failed, so the run must not report success")
+        self.assertEqual(len(seen), len(fvi.ISSUES))
+
+    def test_all_success_reports_zero(self):
+        runner = MagicMock(side_effect=lambda cmd: _ok(1))
+        rc = fvi.file_issues(stop_on_error=False, runner=runner)
+        self.assertEqual(rc, 0)
 
 
 class TestGhRun(unittest.TestCase):
@@ -161,11 +184,35 @@ class TestGhRun(unittest.TestCase):
         r = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
         with unittest.mock.patch("subprocess.run", return_value=r) as mock_sr:
             result = fvi._gh_run(["gh", "issue", "list"])
+            # timeout is asserted here as part of the whole call rather than left
+            # to test_gh_run_has_a_timeout, because this is the assertion that
+            # pins the exact kwargs. When the timeout was added, this one failed
+            # and the sibling passed - two tests in this class disagreed about
+            # the same function, which is the shape a bug takes when one of them
+            # is only checking the flag it happens to care about.
             mock_sr.assert_called_once_with(
                 ["gh", "issue", "list"],
                 capture_output=True, encoding="utf-8", errors="replace",
+                timeout=fvi.GH_TIMEOUT,
             )
             self.assertEqual(result.stdout, "ok")
+
+    def test_gh_run_decodes_leniently(self):
+        """errors="replace" must be passed so cp1252 output cannot crash a run.
+
+        Asserted via the call rather than by fabricating a CompletedProcess,
+        because subprocess.run is mocked and the decoding never actually runs.
+        """
+        r = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
+        with unittest.mock.patch("subprocess.run", return_value=r) as mock_sr:
+            fvi._gh_run(["gh"])
+        self.assertEqual(mock_sr.call_args.kwargs["errors"], "replace")
+
+    def test_gh_run_has_a_timeout(self):
+        r = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
+        with unittest.mock.patch("subprocess.run", return_value=r) as mock_sr:
+            fvi._gh_run(["gh"])
+        self.assertGreater(mock_sr.call_args.kwargs["timeout"], 0)
 
     def test_gh_run_string_output_not_bytes(self):
         r = subprocess.CompletedProcess(args=[], returncode=0, stdout="url", stderr="")
@@ -198,6 +245,18 @@ class TestExceptionHandling(unittest.TestCase):
 
     def test_generic_exception_stop_on_error_returns_one(self):
         runner = MagicMock(side_effect=RuntimeError("unexpected"))
+        rc = fvi.file_issues(stop_on_error=True, runner=runner)
+        self.assertEqual(rc, 1)
+        self.assertEqual(runner.call_count, 1)
+
+    def test_timeout_is_reported_as_failure(self):
+        runner = MagicMock(side_effect=subprocess.TimeoutExpired(cmd="gh", timeout=1))
+        rc = fvi.file_issues(runner=runner)
+        self.assertEqual(rc, 1)
+        self.assertEqual(runner.call_count, len(fvi.ISSUES))
+
+    def test_timeout_stop_on_error_aborts_immediately(self):
+        runner = MagicMock(side_effect=subprocess.TimeoutExpired(cmd="gh", timeout=1))
         rc = fvi.file_issues(stop_on_error=True, runner=runner)
         self.assertEqual(rc, 1)
         self.assertEqual(runner.call_count, 1)

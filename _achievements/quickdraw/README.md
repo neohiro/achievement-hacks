@@ -1,6 +1,6 @@
 # 🔫 Quickdraw
 
-> **Status: `Earned`** — neohiro opened + closed issue #11 on `ExploitProtection` within 5 minutes on 2026-08-31.
+> **Status: `Earned`** — Default tier, verified 2026-10-03 against the live profile. Earned 2026-08-31 by opening + closing issue #11 on `neohiro/ExploitProtection` within 5 minutes.
 
 ## What it measures
 
@@ -14,9 +14,9 @@ A gun-holster / crossdraw icon in red/orange. The profile animation shows the gu
 
 ## Tiers
 
-| Tier | Required |
-|---|---|
-| Default | 1 (one-time) |
+| Tier | Required | Evidence |
+|---|---|---|
+| Default | 1 (one-time) | Verified - badge held |
 
 ## How it works
 
@@ -68,6 +68,7 @@ Write-Host "Closed in $(([Math]::Round(((Get-Date) - $start).TotalSeconds, 2)))s
 ## neohiro status
 
 - **Earned on 2026-08-31** — issue #11 on `neohiro/ExploitProtection` opened and closed in <1 second.
+- **Re-verified 2026-10-03** — the live profile renders the `quickdraw-default` badge asset, and `_achievements/quickdraw/meta.yaml` now records `status: Earned` with a `verified:` block. It previously still said `Not yet` despite the README above claiming otherwise.
 
 ## Difficulty assessment
 

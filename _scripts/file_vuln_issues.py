@@ -28,6 +28,10 @@ from _utils import scrub_sensitive  # noqa: E402
 
 REPO = "neohiro/achievement-hacks"
 
+# Seconds before a single `gh` invocation is abandoned. An unattended run should
+# fail cleanly rather than block on an auth prompt.
+GH_TIMEOUT = 120
+
 ISSUES = [
     {
         "title": "[VULN-001] Quickdraw: sub-5-minute issue close loop is trivially automatable",
@@ -258,47 +262,136 @@ Filed responsibly by the [neohiro](https://github.com/neohiro) org.
 """,
     },
     {
-        "title": "[VULN-006] Galaxy Brain: self-answered Q&A discussions can farm the badge",
-        "labels": ["security", "vulnerability", "vuln-galaxy-brain", "achievement"],
+        "title": "[VULN-006] RETRACTED Galaxy Brain: self-answer abuse is not possible "
+                 "(acceptance must come from a different account)",
+        "labels": ["security", "vulnerability", "vuln-galaxy-brain", "achievement",
+                   "retracted"],
+        "body": """## RETRACTED — this report was wrong
+
+We filed this on 2026-08-31 claiming that Galaxy Brain could be farmed by asking a
+question, answering it yourself, and accepting your own answer as repo admin.
+
+**That is not possible.** GitHub requires the acceptance to be made by a different
+account than the answer author. We tested our own recipe and it does not work.
+
+## What we did
+
+Following the recipe above exactly, on 2026-10-03:
+
+| Field | #7 | #19 |
+|---|---|---|
+| Category | Q&A | Q&A |
+| isAnswered | true | true |
+| answerChosenAt | 2026-10-03T17:40:08Z | 2026-10-03T17:43:27Z |
+| Asker | neohiro | neohiro |
+| Accepted-answer author | neohiro | neohiro |
+
+Every documented condition was met, including the Default threshold of two accepted
+answers. The badge was not awarded. A scan of all 16 discussion-enabled repositories
+in our org found no other accepted Q&A answer.
+
+## Why we were wrong
+
+Our original report proposed mitigation D4 — "only count answers accepted by a
+different account" — as a *future* hardening measure. It is in fact the shipped
+behaviour, at 0% weight rather than the 25% we proposed. We were asking you to
+implement a defence you already have.
+
+GitHub Community staff described the change that closed this:
+
+> "they had to change the rules of the Galaxy Brain achievement so that Q&A in
+> community discussions didn't count towards the achievement, because some users
+> started spamming discussions by making questions with secondary accounts and
+> answering with the main one"
+
+GitHub went further than we suggested and disabled achievements in orgs/community
+entirely.
+
+## Community corroboration
+
+- "you CAN NOT mark your own answers to your own questions. They have to be marked
+  by another user." — orgs/community #27808
+- "Self-marked answers do not count to prevent abuse." — orgs/community #18384
+- "self-marked answers don't count." — orgs/community #143321
+
+## What we got right
+
+The tier thresholds (2/8/16/32) are the values generally reported in the community.
+
+## What we still think is a real gap
+
+Not a vulnerability — a documentation gap. GitHub publishes neither the tier table
+nor the different-accepter rule in its achievement documentation, so contributors
+cannot tell what they are working toward. Unpublished thresholds are tracked as
+global defence G4 across all achievements in our SECURITY.md.
+
+## Correction
+
+No action needed from you. Sorry for the noise; the rest of our findings are
+unaffected. Full write-up including the experiment:
+https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md
+""",
+    },
+    {
+        "title": "[VULN-007] Open Sourcerer: badge rewards activity the spam policy penalises",
+        "labels": ["security", "vulnerability", "vuln-open-sourcerer", "achievement"],
         "body": """## Summary
 
-The **Galaxy Brain** achievement (`galaxy-brain`) counts accepted answers in GitHub Discussions (Q&A category). A user who is both the question asker and the answerer (legitimate for FAQs) can self-accept and earn the badge repeatedly.
+The **Open Sourcerer** achievement (`open-sourcerer`) is awarded for having code merged into a
+public repository you do not own. It is the only achievement whose earn condition inherently
+requires action against a third party's account.
+
+The notable property is not that the badge is scriptable — opening a pull request is a documented
+API operation — but that **the badge's reward condition overlaps with behavior GitHub's spam
+policy prohibits**. The same pull request can be merged and worth an achievement tier, or closed as
+spam and cost the account its ability to contribute. An account can therefore hold Open Sourcerer
+while being banned from opening pull requests. The badge and the Terms of Service disagree about
+what the same action means.
 
 ## Severity
 
-Low (the self-answer pattern is also the recommended way to create FAQs)
+Low as a security matter. No data exposure, no privilege escalation, no system compromise. This is
+a platform-integrity and moderation-consistency issue, and we are not claiming otherwise.
 
-## PoC
+## Automation difficulty
 
-```python
-for i in range(10):
-    d = api.create_discussion(category="Q&A", title=f"FAQ: How do I configure {i}?", body="See replies.")
-    a = api.create_discussion_comment(d, "Here is the answer.")
-    api.accept_discussion_answer(d, a)
-    # +1 Galaxy Brain per accepted answer
-```
+Medium. Unlike the Quickdraw or Pull Shark loops, this one cannot be closed by the attacker alone —
+a maintainer must review and merge. That review is the natural rate limit. The realistic abuse
+pattern is low-volume, high-targeting trivial PRs against small projects with no branch protection
+and an absent maintainer; success is probabilistic, which caps its value.
 
-Reference: [neohiro/achievement-hacks/_achievements/galaxy-brain/README.md](https://github.com/neohiro/achievement-hacks/blob/main/_achievements/galaxy-brain/README.md)
+**Note:** We are not including a mass-PR script here, and we will not accept one. Automating writes
+against repositories we do not own is spam, regardless of which badge it is meant to earn. See
+our automation ethics note.
 
 ## Impact
 
-- Self-answered FAQs are genuinely useful — the issue is the abuse of the mechanism for badge farming.
-- Throws the achievement's value as a "helpful expert" signal into question.
+- Open Sourcerer is the badge most likely to be seen on spam-banned accounts, because surviving a
+  spam wave is exactly what the tier thresholds reward.
+- Tier thresholds are unpublished, so contributors cannot tell whether a genuine first contribution
+  is sufficient.
+- Small-project maintainers bear the moderation cost; the farming account bears none.
 
 ## Proposed Defenses
 
-1. **Self-answer weighting:** If the answerer is the same account as the question asker, the answer counts at 25% weight. Requires 4 self-answers for 1 effective credit.
-2. **Q&A category gate:** Only Q&A discussions in repos with >= 50 stars count. Prevents throwaway repo farms.
-3. **Minimum repo age:** Galaxy Brain only earns on repos >= 90 days old.
-4. **Accept rate normalization:** Only count answers accepted by a **different** account. Or: require at least one upvote from a different account before accepting.
+1. **Exclude sanctioned activity:** Do not count contributions later marked spam by the receiving
+   repository, nor contributions from accounts subsequently suspended for abuse. The enforcement
+   signal already exists; the badge layer ignores it.
+2. **Publish tier thresholds** for Open Sourcerer.
+3. **Time decay:** Weight older contributions less so a badge cannot be built once and displayed
+   indefinitely.
+4. **Reserve higher tiers for breadth:** Require a sustained multi-repo history for Bronze and
+   above, so the badge rewards breadth over volume.
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-006-galaxy-brain-discussion-self-answer-abuse)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-006-galaxy-brain-self-answer-abuse-retracted-as-invalid-2026-10-03)
 
 ## Disclosure
 
-Filed responsibly by the [neohiro](https://github.com/neohiro) org.
+Filed responsibly by the [neohiro](https://github.com/neohiro) org. This is submitted as a platform
+integrity observation, **not** as a security bounty report: it does not affect the confidentiality,
+integrity, or availability of GitHub systems or user data.
 """,
     },
 ]
@@ -326,8 +419,20 @@ def _gh_run(cmd):
     Uses errors="replace" so a stray non-UTF8 byte in gh stderr never crashes
     the whole run. gh rarely emits non-UTF8, but it can happen on Windows
     when locale is not UTF-8.
+
+    timeout=GH_TIMEOUT is load-bearing, not decorative. Without it `gh` has no
+    upper bound on how long it may block — a hung network call, or an auth
+    prompt waiting on stdin that nothing will answer — and the retry loop above
+    cannot retry what has not returned. `GH_TIMEOUT` was defined at the top of
+    this file and never referenced; this is the call site that wanted it.
     """
-    return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace")
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=GH_TIMEOUT,
+    )
 
 
 # Rate-limit handling: gh returns HTTP 429 as a non-zero exit code with a
@@ -371,7 +476,13 @@ def _retry_gh_run(cmd, max_retries=_MAX_RETRIES):
 
 
 def file_issues(dry_run=False, stop_on_error=False, runner=None):
-    """File all issues. Returns 0 on full success, 1 on first failure (when stop_on_error).
+    """File all issues.
+
+    Returns 0 only if every issue was filed successfully, and 1 if any failed.
+    ``stop_on_error`` controls only whether the run *aborts early*; it must never
+    change the reported outcome. Returning 0 after a total failure would tell
+    CI (and the maintainer) that seven security disclosures were published when
+    none were, which is the one result this script must never produce.
 
     runner: optional callable(cmd) -> CompletedProcess. Defaults to _gh_run.
           A runner that yields non-zero returncodes on rate-limit will be retried

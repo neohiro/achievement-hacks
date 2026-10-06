@@ -10,8 +10,16 @@ tiers:
     threshold: 128
   - name: Gold
     threshold: 1024
-earned_on: []
-status: Not yet
+earned_on:
+  - neohiro
+status: Earned
+verified:
+  account: neohiro
+  tier: Silver
+  repeat_count: 3
+  verified_on: "2026-10-03"
+  method: "profile sidebar badge asset 'pull-shark-silver-*' with tier label 'x3'"
+  source: "https://github.com/neohiro?tab=achievements"
 earnable: true
 deprecated_reason: ""
 how_earned: "Opened a pull request that was merged. Counts merged PRs across ALL repos you have access to (public + private)."

@@ -12,12 +12,12 @@ A heart on a sleeve/clothing element. Red/pink tones. The profile animation show
 
 ## Tiers
 
-| Tier | Required |
-|---|---|
-| Default | 1 |
-| Bronze | Unknown |
-| Silver | Unknown |
-| Gold | Unknown |
+| Tier | Required | Evidence |
+|---|---|---|
+| Default | 1 | community-reported |
+| Bronze | Unknown | Unpublished |
+| Silver | Unknown | Unpublished |
+| Gold | Unknown | Unpublished |
 
 GitHub has not published the tier thresholds for this achievement.
 
@@ -65,6 +65,7 @@ echo "This is the most trivially gameable badge — worth 1 heart reaction."
 ## neohiro status
 
 - Not yet started. Requires manual interaction.
+- Re-check at any time with `python _scripts/grant_check.py`.
 
 ## Difficulty assessment
 
@@ -73,3 +74,9 @@ echo "This is the most trivially gameable badge — worth 1 heart reaction."
 ## ⚠️ Ethics note
 
 Automated mass-reactions are trivially detectable by GitHub and likely violate the ToS. The spirit of the achievement is to react to things you genuinely care about. Use it as intended.
+
+Concretely: the documented automation for this badge ([`SECURITY.md` VULN-003](../../SECURITY.md)) iterates over *scraped* comment URLs belonging to strangers and fires reactions at each one. That is not engagement, it is notification spam directed at people who never asked for it, and no badge is worth that. Reacting to comments you have actually read needs no automation and is not what this note is about.
+
+There is deliberately no script in this repo for earning this badge.
+
+See [`_docs/AUTOMATION_ETHICS.md`](../../_docs/AUTOMATION_ETHICS.md).

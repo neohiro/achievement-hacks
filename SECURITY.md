@@ -2,11 +2,21 @@
 
 > **This document is a security research disclosure by the [neohiro](https://github.com/neohiro) org.**
 > It documents low-effort automation vectors for GitHub Achievements and proposes concrete defenses.
-> Filed as GitHub Issues: see [#1](./issues?q=label%3Avuln-achievement), [#2](./issues?q=label%3Avuln-quickdraw), etc.
+> Filed as GitHub Issues: [#1](https://github.com/neohiro/achievement-hacks/issues/1) through
+> [#6](https://github.com/neohiro/achievement-hacks/issues/6).
+> **VULN-007 is documented but not yet filed** — run `_scripts/file_vuln_issues.py --dry-run`
+> to preview it. `tests/test_scripts.py::TestFindingCoverageMatchesSecurityDoc` fails if the
+> findings documented here and the issues this repo can file ever diverge.
 >
 > **Responsible disclosure:** These are platform-level concerns. We are documenting them here
-> to (a) inform GitHub's security team and (b) invite the community to discuss mitigation strategies.
-> Do not use the automation patterns described here to farm achievements on accounts you don't own.
+> to invite mitigation and community discussion. Do not use the automation patterns described
+> here to farm achievements on accounts you don't own.
+>
+> **These are not security vulnerabilities in the bounty sense.** None of them affect the
+> confidentiality, integrity, or availability of GitHub systems or user data. They are
+> threshold-misalignment and abuse-vector observations. See
+> [VULN-007's "Why this is not a HackerOne submission"](#why-this-is-not-a-hackerone-submission)
+> and the [retraction in the Disclosure Timeline](#disclosure-timeline).
 
 ---
 
@@ -19,9 +29,11 @@
 5. [VULN-003: Heart On Your Sleeve — Mass Reaction Automation](#vuln-003-heart-on-your-sleeve--mass-reaction-automation)
 6. [VULN-004: Pair Extraordinaire — Co-Author Trailer Abuse](#vuln-004-pair-extraordinaire--co-author-trailer-abuse)
 7. [VULN-005: Pull Shark — Automated PR Farming](#vuln-005-pull-shark--automated-pr-farming)
-8. [VULN-006: Galaxy Brain — Discussion Self-Answer Abuse](#vuln-006-galaxy-brain--discussion-self-answer-abuse)
-9. [Proposed Defenses](#proposed-defenses)
-10. [Disclosure Timeline](#disclosure-timeline)
+8. [VULN-006: Galaxy Brain — Self-Answer Abuse (RETRACTED)](#vuln-006-galaxy-brain--self-answer-abuse-retracted-as-invalid-2026-10-03)
+9. [VULN-007: Open Sourcerer — Third-Party PR Spam as an Achievement Path](#vuln-007-open-sourcerer--third-party-pr-spam-as-an-achievement-path)
+10. [Achievements assessed and found not exploitable](#achievements-assessed-and-found-not-exploitable)
+11. [Proposed Defenses](#proposed-defenses)
+12. [Disclosure Timeline](#disclosure-timeline)
 
 ---
 
@@ -34,7 +46,8 @@
 | VULN-003 | Heart On Your Sleeve | **Low** | Trivial | Any account with reactions access |
 | VULN-004 | Pair Extraordinaire | **Low** | Easy | Requires one real collaborator |
 | VULN-005 | Pull Shark | **Low** | Easy | Any account with push access |
-| VULN-006 | Galaxy Brain | **Low** | Medium | Requires self-ask + self-answer |
+| VULN-006 | Galaxy Brain | **Retracted** | N/A | **Not exploitable** — requires a different account to accept; already enforced |
+| VULN-007 | Open Sourcerer | **Low** | Medium | Third-party PR spam; review is the rate limit |
 
 ---
 
@@ -285,53 +298,202 @@ for i in range(20):
 
 ---
 
-## VULN-006: Galaxy Brain — Discussion Self-Answer Abuse
+## VULN-006: Galaxy Brain — Self-Answer Abuse (RETRACTED as invalid, 2026-10-03)
 
 **Achievement:** 🧠 Galaxy Brain (`galaxy-brain`)
-**Severity:** Low
-**CVSS 3.1 Estimate:** 2.5 (AV:N/AC:H/PR:H/UI:R/S:U/C:N/I:L/A:N)
+**Severity:** None — the described vector does not exist.
+**Status: RETRACTED.** We tested our own claim and it is false. This entry is kept
+visible rather than deleted, because a disclosure document that quietly removes
+its mistakes is not a disclosure document.
 
-### Description
+### What we originally claimed
 
-The Galaxy Brain achievement is awarded for having answers accepted in GitHub Discussions (Q&A category).
-A self-answer pattern can farm this:
+That Galaxy Brain could be farmed by asking a question, answering it yourself,
+and accepting your own answer as repo admin — "repeating until the badge tier is
+reached". We proposed mitigations D1 (25% weight for self-answers), D2, D3 and D4.
 
-1. Create a Q&A discussion with a question
-2. Answer it yourself
-3. Mark your own answer accepted (if you are the repo admin or the question asker)
-4. Repeat N times
+### What actually happens
 
-```python
-# Pseudocode — VULN-006 PoC
-for i in range(10):
-    discussion = api.create_discussion(
-        category="Q&A",
-        title=f"FAQ: How do I configure {i}?",
-        body="Answer in the replies."
-    )
-    answer = api.create_discussion_comment(discussion, "Here's how...")
-    api.accept_discussion_answer(discussion, answer)
-    # +1 Galaxy Brain per accepted answer
-```
+**GitHub already requires the acceptance to come from a different account.** D4
+is not a suggestion for the future; it is the shipped behaviour, at 0% rather
+than 25%.
 
-### Impact
+Direct experiment on 2026-10-03. Two Q&A discussions were created in
+`neohiro/achievement-hacks` following our own recipe exactly:
 
-- **Badge integrity:** Self-answered FAQs can farm the entire achievement chain.
-- **Legitimate use case:** Self-answered FAQs are genuinely useful. The issue is the abuse of the mechanism.
-- **Low harm:** The self-answer pattern is actually the recommended way to create FAQs on GitHub Discussions.
-
-### Proposed Defenses
-
-| Defense | Description | Difficulty |
+| Field | `#7` | `#19` |
 |---|---|---|
-| **D1: Self-answer weighting** | If the answerer is the same account as the question asker, the answer counts at 25% weight. Requires 4 self-answers for 1 effective credit. | Medium |
-| **D2: Q&A category gate** | Only Q&A discussions in repos with ≥ 50 stars count. Prevents throwaway repo farms. | Easy |
-| **D3: Minimum repo age** | Galaxy Brain only earns on repos ≥ 90 days old. Prevents quick throwaway repo setups. | Easy |
-| **D4: Accept rate normalization** | Only count answers accepted by a **different** account. Or: require at least one upvote from a different account before accepting. | Medium |
+| Category | Q&A | Q&A |
+| `isAnswered` | true | true |
+| `answerChosenAt` | 2026-10-03T17:40:08Z | 2026-10-03T17:43:27Z |
+| Asker | `neohiro` | `neohiro` |
+| Accepted-answer author | `neohiro` | `neohiro` |
+
+Every documented condition was satisfied, including the Default threshold of two
+accepted answers. Roughly four hours later the badge was absent. A scan of all 16
+discussion-enabled `neohiro` repositories found 9 discussions and exactly these 2
+accepted Q&A answers, so no qualifying answer existed elsewhere.
+
+Corroboration:
+
+- *"you CAN NOT mark your own answers to your own questions. They have to be
+  marked by another user."* — orgs/community #27808
+- *"Self-marked answers do not count to prevent abuse."* — orgs/community #18384
+- *"Keep in mind that discussions must be on public repositories, and self-marked
+  answers don't count."* — orgs/community #143321
+
+### Why GitHub hardened it
+
+GitHub's Community staff, describing the change:
+
+> "they had to change the rules of the Galaxy Brain achievement so that Q&A in
+> community discussions didn't count towards the achievement, because some users
+> started spamming discussions by making questions with secondary accounts and
+> answering with the main one" — orgs/community #150697
+
+The abuse we thought we had found is the abuse they had already found and closed.
+They went further than we proposed and disabled achievements in `orgs/community`
+outright.
+
+### What remains
+
+The only residual vector is **two-account coordination**: one account asks, the
+other answers and accepts, on content neither genuinely cares about. That is
+ordinary coordinated inauthenticity, indistinguishable from other spam at the
+platform level, and not specific to this badge. We are not filing it as a
+distinct finding.
+
+One genuine documentation gap survives: **GitHub does not publish the tier
+table** (2/8/16/32, community-reported) nor state the different-accepter rule
+anywhere in the achievement documentation. Contributors cannot tell what they are
+working toward. That is tracked as **G4**, not as a vulnerability.
+
+### Corrected impact
+
+- Self-answered FAQs are a legitimate and common way to write documentation, and
+  they are **not** a badge-farming vector.
+- Galaxy Brain is the one achievement in this catalog that **cannot** be
+  self-served, because closing the loop requires a second person. No script can
+  satisfy it.
+- Our original entry asserted a false capability and would have wasted the
+  reader's time exactly as it wasted ours.
+
+### Corrected recommendation
+
+None. The defences are already implemented. Issue
+[#6](https://github.com/neohiro/achievement-hacks/issues/6) was filed from the
+false claim and should be read as retracted; a maintainer comment saying so is
+the appropriate remedy.
 
 ### References
 
-- Related issue: [#6](./issues/6)
+- Corrected guidance: [`_achievements/galaxy-brain/README.md`](./_achievements/galaxy-brain/README.md)
+- Original issue (superseded): [#6](https://github.com/neohiro/achievement-hacks/issues/6)
+- orgs/community #27808, #18384, #143321, #150697
+
+---
+
+## VULN-007: Open Sourcerer — Third-Party PR Spam as an Achievement Path
+
+**Achievement:** 🌱 Open Sourcerer (`open-sourcerer`)
+**Status:** Documented 2026-10-03. Not filed as a bounty report — see "Why this is not a HackerOne submission" below.
+
+### Description
+
+Open Sourcerer is awarded for having code merged into a public repository you do
+not own. It is the only achievement in the catalog whose earn condition
+**inherently requires action against a third party's account**. Every other
+badge can be earned entirely on infrastructure you control.
+
+The interesting property is not that the badge is easy to automate — opening a
+pull request is a first-class, documented API operation. The interesting property
+is that **the badge's reward condition overlaps with behavior GitHub's spam
+policy prohibits**. The same pull request can be:
+
+- accepted, merged, and worth an achievement tier, or
+- closed as spam, and cost the submitting account its ability to contribute.
+
+An account can therefore hold Open Sourcerer while simultaneously being banned
+from opening pull requests. The badge and the Terms of Service disagree about
+what the same action means.
+
+### Severity
+
+Low as a security matter. No data exposure, no privilege escalation, no system
+compromise. It is a platform-integrity and moderation-consistency issue.
+
+This is stated plainly because inflating it would undermine the six findings
+that came before it.
+
+### Automation difficulty
+
+Medium. Unlike VULN-001 or VULN-005, the loop cannot be closed by the attacker
+alone — a maintainer has to review and merge. That review is the natural rate
+limit, and it is why this vector is rated lower than Quickdraw despite having
+similar scripting ease.
+
+The realistic abuse pattern is low-volume, high-targeting: a large number of
+plausible-looking trivial PRs against many small projects that have no branch
+protection and an absent maintainer. Success is probabilistic rather than
+guaranteed, which caps its value to an attacker.
+
+### Impact
+
+- Open Sourcerer is the badge most likely to be seen on spam-banned accounts, because surviving a
+  spam wave is exactly what the tier thresholds reward.
+- Tier thresholds are unpublished, so contributors cannot tell whether a genuine
+  first contribution is enough. (Also tracked as G4.)
+- Maintainers of small projects bear the moderation cost; the account doing the
+  farming bears none.
+
+### Proposed Defenses
+
+1. **Exclude spam-flagged activity:** Do not count pull requests from contributions later marked
+   spam by the receiving repository, or from accounts subsequently suspended for abuse. The signal
+   already exists; the badge just ignores it.
+2. **Publish tier thresholds:** Disclose the counts. Currently contributors are guessing.
+3. **Decay over time:** Weight older contributions less, so a badge cannot be built once and
+   displayed indefinitely.
+4. **Single-tier on first contribution:** Reserve higher tiers for accounts with a sustained,
+   multi-repo contribution history, so the badge rewards breadth over volume.
+
+### Why this is not a HackerOne submission
+
+The six earlier findings were filed as issues on this repository, and the
+disclosure timeline below carries the note "GitHub Security team notified via
+HackerOne GitHub Bug Bounty (if applicable)". That caveat was doing too much work.
+
+**GitHub's bug bounty program pays for vulnerabilities that compromise
+confidentiality, integrity, or availability of GitHub's systems or users'
+data.** None of VULN-001 through VULN-007 do. They are threshold-misalignment
+and abuse-vector observations. Submitting them to a security bounty is a category
+error, and a researcher who does it repeatedly becomes the kind of noise that
+gets legitimate reports deprioritized.
+
+The correct channels for this class of report are GitHub Support, the
+`github/roadmap` and `github-community` discussions, or a direct engineering
+contact — not the security bounty queue.
+
+This document is therefore best read as **an engineering-priority argument**,
+which is also why every finding proposes specific, implementable mitigations.
+
+### References
+
+- [`_achievements/open-sourcerer/README.md`](./_achievements/open-sourcerer/README.md)
+- [`_docs/AUTOMATION_ETHICS.md`](./_docs/AUTOMATION_ETHICS.md)
+- GitHub Acceptable Use Policies — <https://docs.github.com/en/site-policy/acceptable-use-policies>
+
+---
+
+## Achievements assessed and found not exploitable
+
+For completeness, the remaining catalog entries were reviewed and are **not**
+filed as findings:
+
+| Achievement | Why no finding |
+|---|---|
+| ⭐ Starstruck | Stars are social proof from independent accounts. There is no vector that produces stars without a human choosing to press one. Automating the *promotion* of a repo is legitimate marketing, not an exploit. |
+| 💖 Public Sponsor | Requires real money through GitHub Sponsors. Not automatable in any meaningful sense. |
 
 ---
 
@@ -348,6 +510,7 @@ The following cross-cutting defenses would address multiple vulnerabilities simu
 | **G3** | **Breadth scoring:** Weight achievements by diversity of repos/accounts involved, not just raw counts. A PR merged across 10 repos counts more than 10 on the same repo. | VULN-004, 005, 006 | Medium |
 | **G4** | **Publish threshold tables:** GitHub should publish the exact tier thresholds for Heart On Your Sleeve and Open Sourcerer so honest users know what to work toward. | All | Trivial |
 | **G5** | **Behavioral signal audit:** Before awarding a badge, check the account for minimum genuine activity (issues opened, comments made, stars received). Accounts with only the badge-triggering behavior should not receive the badge. | VULN-001, 003, 004 | Medium |
+| **G6** | **Exclude sanctioned activity:** Do not count contributions later marked as spam, or made by accounts subsequently suspended for abuse. The enforcement signal already exists; the badge layer ignores it. | VULN-007 | Trivial |
 
 ### Privacy Note
 
@@ -359,11 +522,31 @@ All proposed defenses respect user privacy. None of the above defenses require i
 
 | Date | Event |
 |---|---|
-| 2026-08-31 | Vulnerabilities documented in `neohiro/achievement-hacks` repository |
-| 2026-08-31 | GitHub Issues filed as public security concerns |
-| 2026-08-31 | GitHub Security team notified via [HackerOne GitHub Bug Bounty](https://hackerone.com/github) (if applicable) |
+| 2026-08-31 | VULN-001 through VULN-006 documented in `neohiro/achievement-hacks` |
+| 2026-08-31 | Filed as GitHub Issues [#1](https://github.com/neohiro/achievement-hacks/issues/1) through [#6](https://github.com/neohiro/achievement-hacks/issues/6) |
+| 2026-08-31 | Disclosure timeline originally recorded "GitHub Security team notified via HackerOne (if applicable)". **Retracted 2026-10-03** — see below. |
+| 2026-10-03 | VULN-007 (Open Sourcerer) documented; Starstruck and Public Sponsor assessed and found not exploitable |
+| 2026-10-03 | Catalog statuses reconciled against the live profile; 3 of 9 were stale (`pull-shark`, `starstruck`, `yolo` were already earned) |
+| 2026-10-03 | `_docs/AUTOMATION_ETHICS.md` and `_docs/VERIFICATION.md` written; `grant_all.py` removed from the advertised structure |
 | TBD | GitHub acknowledges / implements defenses |
 | TBD | This document updated with resolution status |
+
+### Retraction: the HackerOne note
+
+The 2026-08-31 entry claimed the GitHub Security team was notified through
+HackerOne. That claim is **retracted** because it should never have been made.
+
+GitHub's bounty program scopes to vulnerabilities affecting the confidentiality,
+integrity, or availability of GitHub systems or user data. None of these
+findings do; they are product-abuse and threshold-design observations. Filing
+them to a security bounty would not have produced a payout, and would have
+misrepresented this work as security research in the channel where that
+distinction carries weight.
+
+No HackerOne report was submitted for VULN-001 through VULN-006, and none will be
+submitted for VULN-007. The correct route for this class of finding is GitHub
+Support or the public `github/roadmap` and `github-community` discussions. The
+timeline keeps the retraction visible rather than quietly deleting the row.
 
 ---
 

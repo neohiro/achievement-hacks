@@ -15,11 +15,19 @@ import os
 import pathlib
 import unittest
 
-import jsonschema
 import yaml
 
 REPO = pathlib.Path(os.path.dirname(os.path.abspath(__file__))).parent
 SCHEMA_PATH = REPO / "_docs" / "meta.schema.json"
+
+try:
+    import jsonschema
+except ImportError:  # pragma: no cover
+    # Skipped, not failed. jsonschema is only needed for --validate-schema, and
+    # the rest of this repository runs without it. A module-level import failure
+    # would abort collection for the whole file, so a missing optional dependency
+    # would read as a broken schema rule rather than as an absent package.
+    jsonschema = None
 
 VALID_ENTRY = {
     "slug": "demo",
@@ -43,6 +51,8 @@ VERIFIED_BLOCK = {
 
 
 def _validator():
+    if jsonschema is None:
+        raise unittest.SkipTest("jsonschema not installed; pip install -r requirements.txt")
     return jsonschema.Draft202012Validator(
         json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     )

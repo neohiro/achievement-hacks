@@ -32,7 +32,7 @@ jobs:
           # never executed.
 
       - name: Install dependencies
-        run: pip install pyyaml jsonschema ruff
+        run: pip install -r requirements.txt
 
       - name: Run full validation
         env:

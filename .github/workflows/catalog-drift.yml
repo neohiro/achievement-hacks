@@ -30,9 +30,13 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        # list_achievements.py imports yaml at module scope, so PyYAML has to be
-        # present before the first step that runs it.
-        run: python -m pip install --quiet pyyaml
+        # From requirements.txt rather than a package list spelled out here.
+        # Three workflows each named their own subset, and catalog-drift's subset
+        # was missing jsonschema - which tests/test_schema_rules.py needs. The
+        # drift showed up as unittest.loader._FailedTest, i.e. as a broken test
+        # rather than as a missing package. One file, three workflows, no
+        # possibility of them disagreeing again.
+        run: python -m pip install --quiet -r requirements.txt
 
       - name: Check generated markdown is in sync with meta.yaml
         run: python _scripts/list_achievements.py --check

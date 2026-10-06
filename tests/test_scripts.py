@@ -509,6 +509,58 @@ class TestGrantCheckMain(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("error:", err.getvalue())
 
+    def test_positional_and_account_together_is_refused(self):
+        """Two accounts named, one silently discarded, is how an audit of the
+        wrong account comes back clean. Neither account is fetched."""
+        err = io.StringIO()
+        with mock.patch.object(
+            gc, "fetch_profile_html", side_effect=AssertionError("must not fetch")
+        ):
+            with contextlib.redirect_stderr(err):
+                code = gc.main(["neohiro", "--account", "someoneelse"])
+        self.assertEqual(code, 1)
+        self.assertIn("not both", err.getvalue())
+
+    def test_account_flag_alone_is_not_a_conflict(self):
+        """`--account neohiro` contains a non-flag token, so it is easy to write
+        a conflict check that fires on its own value."""
+        buf = io.StringIO()
+        with (
+            mock.patch.object(gc, "fetch_profile_html", return_value=html(SIMPLE_CARD)),
+            contextlib.redirect_stdout(buf),
+        ):
+            with tempfile.TemporaryDirectory() as tmp:
+                _write_meta(tmp, "yolo", status="Earned")
+                code = gc.main(["--account", "neohiro", "--catalog", tmp])
+        self.assertEqual(code, 0)
+
+    def test_positional_alone_is_not_a_conflict(self):
+        buf = io.StringIO()
+        with (
+            mock.patch.object(gc, "fetch_profile_html", return_value=html(SIMPLE_CARD)),
+            contextlib.redirect_stdout(buf),
+        ):
+            with tempfile.TemporaryDirectory() as tmp:
+                _write_meta(tmp, "yolo", status="Earned")
+                code = gc.main(["neohiro", "--catalog", tmp])
+        self.assertEqual(code, 0)
+
+    def test_neither_uses_the_default_account(self):
+        buf = io.StringIO()
+        seen = []
+
+        def spy(login, **kwargs):
+            seen.append(login)
+            return html(SIMPLE_CARD)
+
+        with mock.patch.object(gc, "fetch_profile_html", side_effect=spy):
+            with contextlib.redirect_stdout(buf):
+                with tempfile.TemporaryDirectory() as tmp:
+                    _write_meta(tmp, "yolo", status="Earned")
+                    code = gc.main(["--catalog", tmp])
+        self.assertEqual(code, 0)
+        self.assertEqual(seen, [gc.DEFAULT_ACCOUNT])
+
 
 class TestMalformedCatalogEntry(unittest.TestCase):
     def test_unknown_status_is_flagged_not_treated_as_not_yet(self):

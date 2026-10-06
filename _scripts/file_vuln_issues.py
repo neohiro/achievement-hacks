@@ -483,9 +483,6 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
     success_count = 0
     failure_count = 0
 
-    failures = 0
-    filed = 0
-
     for i, issue in enumerate(ISSUES, 1):
         cmd = build_command(issue)
         print(f"[{i}/{len(ISSUES)}] {'[DRY-RUN]' if dry_run else 'Running'} gh issue create --repo {REPO} --title {issue['title']!r}", file=sys.stderr)
@@ -509,7 +506,6 @@ def file_issues(dry_run=False, stop_on_error=False, runner=None):
             continue
 
         if result.returncode == 0:
-            filed += 1
             print(f"OK: {result.stdout.strip()}", file=sys.stderr)
             success_count += 1
         else:

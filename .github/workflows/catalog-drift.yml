@@ -57,12 +57,11 @@ jobs:
         run: python -m unittest discover -s tests -v
 
       - name: Lint
-        run: |
-          # Pinned to the version these checks were last verified against, so a new
-          # ruff release cannot turn a green build red (or silently change which
-          # rules apply) without a reviewable diff.
-          python -m pip install --quiet "ruff==0.16.6"
-          python -m ruff check _scripts tests
+        # ruff is pinned in requirements.txt rather than installed here, so the
+        # three workflows cannot end up linting with different rule sets. A
+        # separate install line in one workflow and not in the others is how
+        # "lints clean locally, fails in CI" starts.
+        run: python -m ruff check _scripts tests
 
   # grant_check.py exits 2 when reality and the catalog disagree. That is not a
   # build failure, it is a finding, so it is surfaced as a job summary instead of

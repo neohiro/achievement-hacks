@@ -14,3 +14,9 @@ PyYAML>=6.0
 # hard requirement: `grant_check.py` in particular is kept stdlib-only so it can
 # run in a bare container.
 jsonschema>=4.0
+
+# Pinned exactly, on purpose. A new ruff release can change which rules apply,
+# so an unpinned linter turns a green build red with nothing in the diff but a
+# version number. The pin is repeated in every workflow that needs it only by
+# virtue of being here.
+ruff==0.16.6

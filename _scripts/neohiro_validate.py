@@ -53,6 +53,16 @@ def _run_ruff() -> dict:
             line = line.rstrip()
             if line and "All checks passed!" not in line:
                 findings.append(line)
+
+    # A non-zero exit with nothing on stdout is not "zero issues". That is what
+    # ruff does when it cannot start at all - most often because it is not
+    # installed - and the reason is on stderr. Reporting it as a clean lint is
+    # how a missing dependency becomes a red gate that looks like a code
+    # problem: it happened here, and "0 ruff issues" was the only clue.
+    if proc.returncode != 0 and not findings:
+        detail = (proc.stderr or proc.stdout).strip().splitlines()
+        findings = [detail[-1]] if detail else ["ruff exited non-zero with no output"]
+
     return {
         "check": "ruff",
         "status": "ok" if proc.returncode == 0 else "fail",

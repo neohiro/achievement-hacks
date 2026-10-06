@@ -10,11 +10,11 @@ tiers:
     threshold: 24
   - name: Gold
     threshold: 48
-earned_on: ["neohiro"]
-status: Earned
+earned_on: []
+status: Not yet
 earnable: true
 deprecated_reason: ""
-how_earned: "Co-authored a commit on merged PR #8 via automated script."
+how_earned: "Co-authored a commit on a merged PR, credited to a second account."
 automatable: true
 automation_difficulty: Trivial
 links:
@@ -25,3 +25,13 @@ notes:
   - "Co-author must be a real GitHub account (can't be fake)"
   - "Trailer format: 'Co-authored-by: Name <email@example.com>'"
   - "Can have multiple co-authors per commit — each gets the credit"
+  - >-
+    RETRACTED 2026-10-06. This entry previously read `status: Earned` with a
+    `verified:` block. That block recorded an inference, not an observation: it
+    cited merged PR #8 as evidence, whereas the four badges neohiro really holds
+    each cite the badge asset rendered on the live profile sidebar.
+    `grant_check.py` compared the catalog to the live profile on 2026-10-06 and
+    found 4 badges (pull-shark, quickdraw, starstruck, yolo) with this one
+    absent. The status is corrected to reflect that.
+    See the VULN-006 retraction in SECURITY.md for the same failure mode: a
+    claim about a badge stated as fact when nothing had been measured.

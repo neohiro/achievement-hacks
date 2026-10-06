@@ -1,6 +1,6 @@
 # 👥 Pair Extraordinaire
 
-> **Status: `Earned`** — PR #8 merged on 2026-08-31 with a co-authored commit. ✅
+> **Status: `Not yet`** — retracted 2026-10-06; see below.
 
 ## What it measures
 
@@ -79,9 +79,30 @@ Co-authored-by: Their Name <their@email.com>
 
 ## neohiro status
 
-✅ Earned via PR #8 "co-authored commit automation" on 2026-08-31. Tiers will now accumulate with each additional qualifying merged PR.
+Not yet. This previously read "Earned via PR #8 on 2026-08-31", and that claim has
+been retracted — see the retraction note below.
 
-Re-check at any time with `python _scripts/grant_check.py`.
+Re-check at any time with `python _scripts/grant_check.py --account neohiro`.
+
+### Retraction, 2026-10-06
+
+This entry asserted `status: Earned` on the strength of merged PR #8. That was
+an inference, not a measurement: it read "the PR has a qualifying co-authored
+commit, therefore the badge exists". The four badges neohiro genuinely holds each
+cite the badge asset rendered on the live profile sidebar, which is a different
+kind of evidence.
+
+`grant_check.py` compared the catalog against the live profile on 2026-10-06 and
+found four badges — pull-shark, quickdraw, starstruck, yolo — with this one
+absent. The recipe below is still believed to work; what is retracted is the
+claim that it had been *demonstrated* to work on this account.
+
+This is the same failure mode as [VULN-006](../../SECURITY.md): a claim about a
+badge stated as fact when nothing had been measured. The fix there was to record
+the retraction. The fix here is the same.
+
+If the badge later does appear on the profile, restore `status: Earned` and put
+back a `verified:` block that cites the observed badge asset, not the PR.
 
 ## ⚠️ Ethics note
 
@@ -99,4 +120,4 @@ See [`_docs/AUTOMATION_ETHICS.md`](../../_docs/AUTOMATION_ETHICS.md).
 
 ## Difficulty assessment
 
-**Trivial** — Was earned in one PR merge with one real co-author account. Subsequent tiers (Bronze/Silver/Gold) require accumulating additional co-authored merged commits.
+**Trivial** — one merged PR with one real co-author account is enough for Default. Subsequent tiers (Bronze/Silver/Gold) require accumulating additional co-authored merged commits.

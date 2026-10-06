@@ -586,6 +586,30 @@ class TestListAchievementsMain(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("in sync", buf.getvalue())
 
+    def test_check_verdict_is_on_stdout_not_only_stderr(self):
+        """`neohiro_validate.py` runs this and reports the schema check.
+
+        It read stderr only, so when the summary moved to stdout the tool exited
+        0 having printed "OK" while its caller reported a failure - a failing
+        gate on a passing check, which is worse than a gap because it trains
+        people to ignore the gate. Pinned here so the stream is a contract rather
+        than an accident, and so a caller that reads one stream has to say so.
+        """
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = la.main(["--check"])
+        self.assertEqual(code, 0)
+        self.assertIn("OK", out.getvalue(), "--check must say its verdict on stdout")
+        self.assertNotIn("OK", err.getvalue())
+
+    def test_json_mode_keeps_stdout_pure(self):
+        """`--json | jq` only works if nothing else lands on stdout."""
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            la.main(["--json"])
+        json.loads(out.getvalue())  # must not raise
+        self.assertEqual(err.getvalue(), "")
+
     def test_check_detects_drift(self):
         with tempfile.TemporaryDirectory() as tmp:
             readme = os.path.join(tmp, "README.md")

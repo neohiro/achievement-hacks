@@ -551,6 +551,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.check:
+        # stdout, not stderr: tests/test_scripts.py asserts on the captured
+        # stdout for both the clean and the drifted case, and a test that reads
+        # the wrong stream is not a test. `--json` is the mode that has to keep
+        # stdout pure, and it does - it returns before reaching here.
         problems = check_sync(records)
         if problems:
             print(

@@ -385,7 +385,7 @@ our automation ethics note.
 
 ## Reference
 
-- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-006-galaxy-brain-discussion-self-answer-abuse)
+- [Full security analysis](https://github.com/neohiro/achievement-hacks/blob/main/SECURITY.md#vuln-006-galaxy-brain-self-answer-abuse-retracted-as-invalid-2026-10-03)
 
 ## Disclosure
 
@@ -419,8 +419,20 @@ def _gh_run(cmd):
     Uses errors="replace" so a stray non-UTF8 byte in gh stderr never crashes
     the whole run. gh rarely emits non-UTF8, but it can happen on Windows
     when locale is not UTF-8.
+
+    timeout=GH_TIMEOUT is load-bearing, not decorative. Without it `gh` has no
+    upper bound on how long it may block — a hung network call, or an auth
+    prompt waiting on stdin that nothing will answer — and the retry loop above
+    cannot retry what has not returned. `GH_TIMEOUT` was defined at the top of
+    this file and never referenced; this is the call site that wanted it.
     """
-    return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace")
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=GH_TIMEOUT,
+    )
 
 
 # Rate-limit handling: gh returns HTTP 429 as a non-zero exit code with a

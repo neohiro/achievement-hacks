@@ -184,9 +184,16 @@ class TestGhRun(unittest.TestCase):
         r = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
         with unittest.mock.patch("subprocess.run", return_value=r) as mock_sr:
             result = fvi._gh_run(["gh", "issue", "list"])
+            # timeout is asserted here as part of the whole call rather than left
+            # to test_gh_run_has_a_timeout, because this is the assertion that
+            # pins the exact kwargs. When the timeout was added, this one failed
+            # and the sibling passed - two tests in this class disagreed about
+            # the same function, which is the shape a bug takes when one of them
+            # is only checking the flag it happens to care about.
             mock_sr.assert_called_once_with(
                 ["gh", "issue", "list"],
                 capture_output=True, encoding="utf-8", errors="replace",
+                timeout=fvi.GH_TIMEOUT,
             )
             self.assertEqual(result.stdout, "ok")
 

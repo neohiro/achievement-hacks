@@ -146,31 +146,27 @@ GitHub ships new achievements irregularly. When they do:
 1. Add `_achievements/<slug>/` (kebab-case, lowercase) with a `meta.yaml`
    matching [`_docs/ACHIEVEMENT_FORMAT.md`](./_docs/ACHIEVEMENT_FORMAT.md) and
    a `README.md` with all 11 required sections.
-2. Run `python _scripts/list_achievements.py --check` and
-   `python _scripts/grant_check.py neohiro` to prove the catalog matches reality.
-3. Update the catalog table above and in
-   [`_docs/ACHIEVEMENT_INDEX.md`](./_docs/ACHIEVEMENT_INDEX.md) by hand, adding
-   your row. See below for why there is no generator.
+2. Run `python _scripts/list_achievements.py --write` to regenerate the table
+   above and the one in
+   [`_docs/ACHIEVEMENT_INDEX.md`](./_docs/ACHIEVEMENT_INDEX.md).
+3. Run `python _scripts/list_achievements.py --check` and
+   `python _scripts/grant_check.py --account neohiro` to prove the catalog
+   matches reality.
 4. Open a PR.
 
-**The catalog table is maintained by hand, and that is deliberate.** Both the
-table here and the one in [`_docs/ACHIEVEMENT_INDEX.md`](./_docs/ACHIEVEMENT_INDEX.md)
-carry a `<!-- BEGIN:ACHIEVEMENT_* -->` marker naming `list_achievements.py` as
-their generator. That is inaccurate and worth correcting rather than preserving:
-`list_achievements.py` prints a table to stdout and has no write mode, so there
-is nothing to run.
+**Do not hand-edit those tables.** Both are generated between
+`<!-- BEGIN:ACHIEVEMENT_* -->` and `<!-- END:ACHIEVEMENT_* -->` markers, and
+`--check` exits 2 if they have drifted from `meta.yaml`. Every column is
+derived: `Difficulty` comes from `automation_difficulty`, `Easiest path` from
+`how_earned`, and the status cell gains its `(Silver, x3)` detail from the
+`verified:` block. Editing one by hand means the next `--write` discards it.
 
-A generator was not written because the columns are not all derivable from
-`meta.yaml`. `Difficulty` and `Easiest path` have no counterpart there —
-`automation_difficulty` and `how_earned` are prose of a different shape — and
-the rows carry per-achievement status detail (`**In progress** (Q&A #7 created)`)
-that belongs to the person tracking the work, not to the data file. A generator
-would either lose those columns or move them into `meta.yaml`, which is a
-design decision that belongs with the catalog's owner rather than in a fix to a
-failing check.
+If a row reads wrong, the `meta.yaml` behind it is wrong — fix that instead. If
+`--write` refuses with "markers are not both present, or are out of order", the
+file has an unbalanced marker pair, which is a human fix; the check tells you
+which file and which marker.
 
-What CI does check is that `meta.yaml` parses and (with `--validate-schema`)
-conforms, and that `grant_check.py` agrees with the live profile. Before opening the PR, read
+Before opening the PR, read
 [`_docs/AUTOMATION_ETHICS.md`](./_docs/AUTOMATION_ETHICS.md) — a PR that adds a
 badge-farming script will be rejected with an explanation.
 

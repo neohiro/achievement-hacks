@@ -175,10 +175,8 @@ and should be fixed in the same commit.
 ## Adding an achievement
 
 1. Create the folder with `meta.yaml` and `README.md`.
-2. Add your row to both catalog tables by hand - the `README.md` catalog and
-   `_docs/ACHIEVEMENT_INDEX.md`. There is no generator; see the note in
-   `README.md` ("The catalog table is maintained by hand") for why.
-3. Run `python _scripts/list_achievements.py --check` and `python _scripts/grant_check.py neohiro`.
+2. Run `python _scripts/list_achievements.py --write` to regenerate both catalog tables.
+3. Run `python _scripts/list_achievements.py --check` and `python _scripts/grant_check.py`.
 4. Open a PR.
 
 CI enforces steps 2 and 3 on every change under `_achievements/`.
